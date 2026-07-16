@@ -27,6 +27,11 @@ import {
   MapPin, Mail, ScrollText, Plane, MoonStar,
 } from "lucide-react";
 
+const DESKTOP_SIDEBAR_WIDTH = "lg:ml-[280px]";
+const DESKTOP_SIDEBAR_COLLAPSED_WIDTH = "lg:ml-[72px]";
+const EXPANDED_SIDEBAR_WIDTH = "w-[256px] sm:w-[280px]";
+const COLLAPSED_SIDEBAR_WIDTH = "w-[72px]";
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, view, setView, logout, sidebarCollapsed, toggleSidebar, notifications, markAllNotificationsRead } = useWorkHive();
   const { theme, setTheme } = useTheme();
@@ -63,7 +68,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onCloseMobile={() => setMobileOpen(false)}
       />
 
-      <div className={cn("flex min-w-0 flex-1 flex-col transition-all", sidebarCollapsed ? "lg:ml-[72px]" : "lg:ml-[256px]")}>
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 flex-col transition-all",
+          sidebarCollapsed ? DESKTOP_SIDEBAR_COLLAPSED_WIDTH : DESKTOP_SIDEBAR_WIDTH
+        )}
+      >
         <header className="sticky top-0 z-30 flex min-h-16 items-center gap-2 border-b border-border bg-card/80 px-3 backdrop-blur supports-[backdrop-filter]:bg-card/60 sm:gap-3 sm:px-4">
           <Button
             variant="ghost"
@@ -338,7 +348,7 @@ function Sidebar({
       <aside
         className={cn(
           "sidebar-honeycomb fixed inset-y-0 left-0 z-50 flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-300",
-          collapsed ? "w-[72px]" : "w-[256px] sm:w-[280px]",
+          collapsed ? COLLAPSED_SIDEBAR_WIDTH : EXPANDED_SIDEBAR_WIDTH,
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
@@ -413,3 +423,4 @@ function Sidebar({
     </>
   );
 }
+

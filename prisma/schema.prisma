@@ -1,0 +1,292 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id              String              @id @default(cuid())
+  authUserId      String?             @unique
+  email           String              @unique
+  name            String?
+  role            Role                @default(employee)
+  active          Boolean             @default(true)
+  employeeId      String?
+  department      String?
+  passwordSource  PasswordSource      @default(role_default)
+  passwordRole    Role?
+  passwordVersion Int?
+  lastLogin       DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  locationStatus  UserLocationStatus?
+
+  @@index([role])
+  @@index([active])
+  @@index([passwordSource, passwordRole, passwordVersion])
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SystemSettings {
+  id                      String   @id @default("default")
+  organizationName        String
+  campusAddress           String
+  campusLandmark          String   @default("")
+  campusPlaceId           String   @default("")
+  contactNumber           String
+  hrEmail                 String
+  academicYear            String
+  currentSemester         String
+  gracePeriod             Int      @default(10)
+  tardinessThreshold      Int      @default(5)
+  holidayReminderLead     Int      @default(7)
+  vacationLeaveDays       Int      @default(10)
+  sickLeaveDays           Int      @default(8)
+  incentiveLeaveDays      Int      @default(3)
+  soloParentLeaveDays     Int      @default(7)
+  paternityLeaveDays      Int      @default(0)
+  maternityLeaveDays      Int      @default(60)
+  leaveWithoutPayDays     Int      @default(0)
+  employeeDefaultPassword String   @default("Employee@123")
+  hrDefaultPassword       String   @default("HR@123")
+  adminDefaultPassword    String   @default("Admin@123")
+  employeePasswordVersion Int      @default(1)
+  hrPasswordVersion       Int      @default(1)
+  adminPasswordVersion    Int      @default(1)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+model FeatureToggleConfig {
+  id                String   @id @default("default")
+  manualAttendance  Boolean  @default(true)
+  qrAttendance      Boolean  @default(true)
+  leaveModule       Boolean  @default(true)
+  recruitmentModule Boolean  @default(true)
+  gpsAttendance     Boolean  @default(false)
+  overtimeModule    Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model GeofenceZone {
+  id        String   @id @default(cuid())
+  name      String
+  lat       Float
+  lng       Float
+  radius    Int
+  color     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+}
+
+model EmailTemplateRecord {
+  id        String   @id @default(cuid())
+  type      String   @unique
+  subject   String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  timestamp DateTime @default(now())
+  user      String
+  action    String
+  category  String
+  detail    String
+
+  @@index([timestamp])
+  @@index([category])
+}
+
+model EmployeeRecord {
+  id               String              @id
+  idNumber         String?             @unique
+  lastName         String
+  firstName        String
+  middleName       String
+  gender           String
+  department       String
+  position         String
+  accountRole      Role                @default(employee)
+  staffCategory    String?
+  dateHired        String
+  birthDate        String?
+  employmentStatus String
+  email            String              @unique
+  address          String
+  contactNumber    String
+  avatarColor      String?
+  education        Json
+  documents        Json
+  attendanceLogs   AttendanceLog[]
+  leaveRequests    LeaveRequestRecord[]
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  @@index([department])
+  @@index([department, idNumber])
+  @@index([position])
+  @@index([employmentStatus])
+  @@index([employmentStatus, idNumber])
+  @@index([gender, idNumber])
+  @@index([lastName, firstName])
+  @@index([idNumber])
+}
+
+model LeaveRequestRecord {
+  id                String         @id
+  employeeId        String
+  leaveType         String
+  dateFrom          String
+  dateTo            String
+  days              Float
+  reason            String
+  dateFiled         String
+  stages            Json
+  currentStageIndex Int            @default(0)
+  overallStatus     String         @default("Pending")
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  employee          EmployeeRecord @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, dateFiled])
+  @@index([employeeId, overallStatus])
+}
+
+model HolidayRecord {
+  id        String   @id
+  name      String
+  date      String   @unique
+  type      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+  @@index([type])
+}
+
+model AttendanceImportBatch {
+  id                String          @id @default(cuid())
+  fileName          String
+  targetYear        Int
+  targetMonth       Int
+  importedByName    String
+  importedByUserId  String?
+  recordsImported   Int             @default(0)
+  matchedRecords    Int             @default(0)
+  unmatchedRecords  Int             @default(0)
+  validationRecords Int             @default(0)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  attendanceLogs    AttendanceLog[]
+
+  @@index([targetYear, targetMonth])
+  @@index([createdAt])
+}
+
+model AttendanceLog {
+  id                       String                 @id @default(cuid())
+  employeeId               String?
+  sourceEmployeeName       String
+  workDate                 DateTime               @db.Date
+  dayName                  String
+  monthKey                 String
+  staffCategory            String                 @default("Non-Teaching")
+  morningIn                String?
+  morningOut               String?
+  afternoonIn              String?
+  afternoonOut             String?
+  timeIn                   String?
+  timeOut                  String?
+  scheduledIn              String?
+  scheduledOut             String?
+  lateMinutes              Int                    @default(0)
+  undertimeMinutes         Int                    @default(0)
+  overtimeMinutes          Int                    @default(0)
+  approvedOvertimeMinutes  Int                    @default(0)
+  remarks                  String                 @default("Present")
+  overtimeStatus           String                 @default("Not Required")
+  overtimeDecisionBy       String?
+  overtimeDecisionAt       DateTime?
+  overtimeDecisionNote     String?
+  requiresValidation       Boolean                @default(false)
+  validationFlags          Json                   @default("[]")
+  validationStatus         String                 @default("Pending")
+  validationResolvedBy     String?
+  validationResolvedAt     DateTime?
+  validationResolutionNote String?
+  importBatchId            String?
+  deletedAt                DateTime?
+  deletedByName            String?
+  deletedByUserId          String?
+  deletedReason            String?
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  employee                 EmployeeRecord?        @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  importBatch              AttendanceImportBatch? @relation(fields: [importBatchId], references: [id], onDelete: SetNull)
+
+  @@unique([employeeId, workDate])
+  @@index([employeeId, workDate])
+  @@index([monthKey])
+  @@index([staffCategory, monthKey, workDate])
+  @@index([staffCategory, employeeId, workDate])
+  @@index([staffCategory, remarks, workDate])
+  @@index([overtimeStatus])
+  @@index([staffCategory, overtimeStatus, workDate])
+  @@index([requiresValidation, validationStatus])
+  @@index([staffCategory, requiresValidation, validationStatus, workDate])
+  @@index([deletedAt])
+  @@index([staffCategory, deletedAt, workDate])
+}
+
+enum Role {
+  employee
+  hr
+  admin
+}
+
+enum PasswordSource {
+  role_default
+  custom
+}
+
+model UserLocationStatus {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  lat        Float
+  lng        Float
+  detectedAt DateTime @default(now())
+  lastSyncAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+
+
+
+
+
+
+
+

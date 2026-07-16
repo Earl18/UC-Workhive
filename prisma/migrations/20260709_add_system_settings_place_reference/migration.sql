@@ -1,0 +1,5 @@
+ALTER TABLE "SystemSettings"
+ADD COLUMN IF NOT EXISTS "campusLandmark" TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE "SystemSettings"
+ADD COLUMN IF NOT EXISTS "campusPlaceId" TEXT NOT NULL DEFAULT '';

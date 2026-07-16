@@ -2,6 +2,10 @@ FROM node:22-bookworm-slim AS base
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
+
 FROM base AS deps
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -18,14 +22,17 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=8080
 ENV HOSTNAME=0.0.0.0
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends python3 python3-pip \
-  && ln -sf /usr/bin/python3 /usr/local/bin/python \
+  && apt-get install -y --no-install-recommends openssl ca-certificates python3 python3-pip python3-venv \
+  && python3 -m venv /opt/venv \
+  && /opt/venv/bin/pip install --no-cache-dir --upgrade pip \
   && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
 
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static

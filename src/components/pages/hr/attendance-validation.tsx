@@ -620,17 +620,15 @@ export function AttendanceValidationPage() {
   }, [bulkAutoFillPrepared, bulkPreviewQuery.data?.records, canBulkAutoFill]);
 
 
-  if (validationQuery.isLoading && !data) {
-    return <div className="p-6 text-muted-foreground"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading attendance validation...</div>;
-  }
+  const isValidationLoading = validationQuery.isLoading;
 
-  if (validationQuery.error || !data) {
+  if (validationQuery.error) {
     return <div className="p-6 text-muted-foreground">{validationQuery.error instanceof Error ? validationQuery.error.message : "Unable to load attendance validation."}</div>;
   }
 
   const records = filteredRecords;
-  const employeeOptions: FilterOption[] = [{ value: "all", label: "All validation items" }, ...(metaData?.employees ?? data.employees).map((employee) => ({ value: employee.id, label: employee.name }))];
-  const issueOptions: FilterOption[] = [{ value: "all", label: "All issues" }, ...(metaData?.issues ?? data.issues)];
+  const employeeOptions: FilterOption[] = [{ value: "all", label: "All validation items" }, ...((metaData?.employees ?? data?.employees ?? []).map((employee) => ({ value: employee.id, label: employee.name })))];
+  const issueOptions: FilterOption[] = [{ value: "all", label: "All issues" }, ...((metaData?.issues ?? data?.issues ?? []))];
   const selectedIssueLabel = issueOptions.find((option) => option.value === issueFilter)?.label ?? "Selected issue";
   const selectableRecords = records.filter((record) => record.validationStatus !== "Resolved" && (isOvertimeIssue ? record.overtimeStatus === "Pending" : isLeaveAttendanceIssue ? true : record.overtimeStatus !== "Pending"));
   const selectableRecordIds = selectableRecords.map((record) => record.id);
@@ -830,14 +828,14 @@ export function AttendanceValidationPage() {
       <div className="space-y-6 p-4 md:p-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Attendance Validation</h1>
-        <p className="text-sm text-muted-foreground">Review unmatched employees, incomplete punches, and overtime confirmations for {data.monthLabel}.</p>
+        <p className="text-sm text-muted-foreground">Review unmatched employees, incomplete punches, and overtime confirmations for {data?.monthLabel ?? metaData?.monthLabel ?? "the selected period"}.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <ValidationCard title="Pending Review" value={data.counts.pending} icon={<AlertTriangle className="h-4 w-4 text-amber-600" />} accent />
-        <ValidationCard title="Pending OT" value={data.counts.unresolvedOvertime} icon={<Clock3 className="h-4 w-4 text-primary" />} />
-        <ValidationCard title="Unknown Employees" value={data.counts.unmatchedEmployees} icon={<UserSearch className="h-4 w-4 text-red-600" />} />
-        <ValidationCard title="Incomplete Punches" value={data.counts.incompletePunches} icon={<ShieldCheck className="h-4 w-4 text-orange-600" />} />
+        <ValidationCard title="Pending Review" value={data?.counts.pending ?? 0} icon={<AlertTriangle className="h-4 w-4 text-amber-600" />} accent />
+        <ValidationCard title="Pending OT" value={data?.counts.unresolvedOvertime ?? 0} icon={<Clock3 className="h-4 w-4 text-primary" />} />
+        <ValidationCard title="Unknown Employees" value={data?.counts.unmatchedEmployees ?? 0} icon={<UserSearch className="h-4 w-4 text-red-600" />} />
+        <ValidationCard title="Incomplete Punches" value={data?.counts.incompletePunches ?? 0} icon={<ShieldCheck className="h-4 w-4 text-orange-600" />} />
       </div>
 
       <Card>
@@ -859,7 +857,7 @@ export function AttendanceValidationPage() {
                 />
               </div>
             </div>
-            <Badge variant="outline" className="h-10 min-w-[7.5rem] shrink-0 justify-center border-primary/40 px-5 text-sm text-primary">{records.length} items</Badge>
+            <Badge variant="outline" className="h-10 min-w-[7.5rem] shrink-0 justify-center border-primary/40 px-5 text-sm text-primary">{isValidationLoading ? 0 : records.length} items</Badge>
           </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <SearchableValidationFilterSelect
@@ -941,6 +939,11 @@ export function AttendanceValidationPage() {
         </CardHeader>
         <CardContent>
           <div className="max-h-[40rem] overflow-auto rounded-lg border border-border">
+            {isValidationLoading || !data ? (
+              <div className="flex items-center justify-center py-14 text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading attendance validation records...
+              </div>
+            ) : (
             <Table className="w-full table-fixed">
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
@@ -1038,11 +1041,12 @@ export function AttendanceValidationPage() {
                 ) : null}
               </TableBody>
             </Table>
+            )}
           </div>
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
-              {data.pagination.totalRecords ?? 0} of {data.pagination.scopedTotalRecords ?? data.pagination.totalRecords ?? 0} records
+              {isValidationLoading ? 0 : (data?.pagination.totalRecords ?? 0)} of {data?.pagination.scopedTotalRecords ?? data?.pagination.totalRecords ?? 0} records
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="flex items-center gap-2">
@@ -1059,9 +1063,9 @@ export function AttendanceValidationPage() {
                 </Select>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => { setSelectedRecordIds([]); setPage((current) => Math.max(1, current - 1)); }} disabled={(data.pagination.page ?? 1) <= 1}>Previous</Button>
-                <div className="min-w-[110px] text-center text-sm text-muted-foreground">Page {data.pagination.page ?? 1} of {data.pagination.totalPages ?? 1}</div>
-                <Button variant="outline" size="sm" onClick={() => { setSelectedRecordIds([]); setPage((current) => Math.min(data.pagination.totalPages ?? current, current + 1)); }} disabled={(data.pagination.page ?? 1) >= (data.pagination.totalPages ?? 1)}>Next</Button>
+                <Button variant="outline" size="sm" onClick={() => { setSelectedRecordIds([]); setPage((current) => Math.max(1, current - 1)); }} disabled={isValidationLoading || (data?.pagination.page ?? 1) <= 1}>Previous</Button>
+                <div className="min-w-[110px] text-center text-sm text-muted-foreground">Page {data?.pagination.page ?? 1} of {data?.pagination.totalPages ?? 1}</div>
+                <Button variant="outline" size="sm" onClick={() => { setSelectedRecordIds([]); setPage((current) => Math.min(data?.pagination.totalPages ?? current, current + 1)); }} disabled={isValidationLoading || (data?.pagination.page ?? 1) >= (data?.pagination.totalPages ?? 1)}>Next</Button>
               </div>
             </div>
           </div>
@@ -1259,7 +1263,7 @@ export function AttendanceValidationPage() {
                       <TableRow key={record.id}>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <HexagonAvatar name={record.employeeName} size={24} />
+                            <HexagonAvatar name={record.employeeName} size={26} />
                             <div className="min-w-0 leading-tight">
                               <p className="truncate text-xs font-semibold text-foreground">{record.employeeName}</p>
                               <p className="truncate text-[10px] text-muted-foreground">{record.employeeId ? record.position : record.sourceEmployeeName ?? "Unknown employee"}</p>
@@ -1288,9 +1292,9 @@ export function AttendanceValidationPage() {
                   </TableBody>
                 </Table>
               </div>
+
             </div>
           ) : null}
-
           <DialogFooter className="shrink-0 flex-wrap items-stretch border-t border-border px-6 py-4 sm:items-center">
             <Button className="min-w-0 whitespace-normal text-center" variant="outline" onClick={() => setBulkResolveOpen(false)} disabled={bulkResolveMutation.isPending || bulkAutoFillMutation.isPending}>Cancel</Button>
             {canBulkAutoFill ? (
@@ -1699,6 +1703,7 @@ function ValidationFilterDateField({ label, value, onChange }: { label: string; 
     </div>
   );
 }
+
 
 
 

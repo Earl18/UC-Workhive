@@ -1,15 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWorkHive } from "@/lib/store";
 import { getAttendanceCategoryFromRemarks } from "@/lib/attendance-remarks";
 import { HexStatCard, HexagonAvatar, HexagonBadge } from "@/components/shared/hexagon";
-import {
-  employmentStatusColor,
-  leaveStatusColor,
-  formatDate,
-  formatDateShort,
-} from "@/components/shared/helpers";
+import { formatDate, formatDateShort, leaveStatusColor } from "@/components/shared/helpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -31,43 +27,158 @@ import {
   Plane,
   Bell,
   TrendingUp,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useHrApplications } from "@/hooks/use-applications";
+import { useStaffJobPostings } from "@/hooks/use-job-postings";
+import { useStaffHolidayRecords } from "@/hooks/use-holidays";
+import type { Applicant, AttendanceRecord, Employee, LeaveRequest } from "@/lib/types";
+
+type AttendanceDashboardResponse = {
+  records: Array<
+    AttendanceRecord & {
+      employeeName: string;
+      department: string;
+      position: string;
+      approvedOvertimeHrs: number;
+      requiresValidation: boolean;
+    }
+  >;
+  error?: string;
+};
+
+type StaffLeaveDashboardResponse = {
+  employees?: Array<Employee & { birthDate?: string }>;
+  requests?: LeaveRequest[];
+  error?: string;
+};
+
+const TODAY = "2026-07-18";
+const CURRENT_MONTH = TODAY.slice(0, 7);
+const CURRENT_MONTH_LABEL = new Date(`${CURRENT_MONTH}-01T00:00:00`).toLocaleDateString("en-US", {
+  month: "long",
+  year: "numeric",
+});
+
+async function readJson<T>(response: Response, fallbackMessage: string): Promise<T> {
+  const payload = (await response.json()) as T & { error?: string };
+  if (!response.ok) {
+    throw new Error(payload.error ?? fallbackMessage);
+  }
+  return payload;
+}
+
+function applicantDisplayName(applicant: Applicant) {
+  return applicant.fullName ?? applicant.name ?? "Applicant";
+}
 
 export function DashboardPage() {
-  const {
-    employees,
-    attendance,
-    leaveRequests,
-    jobPostings,
-    applicants,
-    holidays,
-    approveOvertime,
-    setView,
-    setSelectedEmployeeId,
-    setSelectedApplicantId,
-    setSelectedInterviewApplicantId,
-  } = useWorkHive();
+  const { setView, setSelectedEmployeeId, setSelectedInterviewApplicantId } = useWorkHive();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const today = "2025-04-15";
+  const todayAttendanceQuery = useQuery({
+    queryKey: ["hr-dashboard-attendance", "today", TODAY],
+    queryFn: async () => {
+      const response = await fetch(`/api/hr/attendance?date=${TODAY}&pageSize=5000`, { cache: "no-store" });
+      return readJson<AttendanceDashboardResponse>(response, "Unable to load today's attendance records.");
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  const monthlyAttendanceQuery = useQuery({
+    queryKey: ["hr-dashboard-attendance", "month", CURRENT_MONTH],
+    queryFn: async () => {
+      const response = await fetch(`/api/hr/attendance?month=${CURRENT_MONTH}&pageSize=5000`, { cache: "no-store" });
+      return readJson<AttendanceDashboardResponse>(response, "Unable to load monthly attendance records.");
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  const leaveDashboardQuery = useQuery({
+    queryKey: ["hr-dashboard-leave"],
+    queryFn: async () => {
+      const response = await fetch("/api/hr/leave", { cache: "no-store" });
+      const payload = await readJson<StaffLeaveDashboardResponse>(response, "Unable to load leave requests.");
+      return {
+        employees: payload.employees ?? [],
+        requests: payload.requests ?? [],
+      };
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+  });
+
+  const jobPostingsQuery = useStaffJobPostings();
+  const applicationsQuery = useHrApplications();
+  const holidaysQuery = useStaffHolidayRecords();
+
+  const overtimeMutation = useMutation({
+    mutationFn: async ({ attendanceId, approve }: { attendanceId: string; approve: boolean }) => {
+      const response = await fetch("/api/hr/attendance", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "overtime", id: attendanceId, approve }),
+      });
+
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Unable to update overtime decision.");
+      }
+    },
+    onSuccess: (_, variables) => {
+      void queryClient.invalidateQueries({ queryKey: ["hr-dashboard-attendance"] });
+      void queryClient.invalidateQueries({ queryKey: ["hr-attendance"] });
+      toast({
+        title: variables.approve ? "Overtime Approved" : "Overtime Rejected",
+        description: `Attendance record ${variables.attendanceId} was updated successfully.`,
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Unable to update overtime",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const employees = leaveDashboardQuery.data?.employees ?? [];
+  const leaveRequests = leaveDashboardQuery.data?.requests ?? [];
+  const todayAttendance = todayAttendanceQuery.data?.records ?? [];
+  const monthlyAttendance = monthlyAttendanceQuery.data?.records ?? [];
+  const jobPostings = jobPostingsQuery.data?.jobPostings ?? [];
+  const applicants = applicationsQuery.data ?? [];
+  const holidays = holidaysQuery.data?.holidays ?? [];
+
+  const loading =
+    todayAttendanceQuery.isLoading ||
+    monthlyAttendanceQuery.isLoading ||
+    leaveDashboardQuery.isLoading ||
+    jobPostingsQuery.isLoading ||
+    applicationsQuery.isLoading ||
+    holidaysQuery.isLoading;
 
   const todaySnapshot = useMemo(() => {
-    const todayRecords = attendance.filter((a) => a.date === today);
     const presentIds = new Set(
-      todayRecords.filter((a) => getAttendanceCategoryFromRemarks(a) === "Present").map((a) => a.employeeId)
+      todayAttendance
+        .filter((record) => getAttendanceCategoryFromRemarks(record) === "Present")
+        .map((record) => record.employeeId),
     );
     const absentIds = new Set(
-      todayRecords.filter((a) => getAttendanceCategoryFromRemarks(a) === "Absent").map((a) => a.employeeId)
+      todayAttendance
+        .filter((record) => getAttendanceCategoryFromRemarks(record) === "Absent")
+        .map((record) => record.employeeId),
     );
     const leaveToday = leaveRequests.filter(
-      (r) =>
-        r.overallStatus !== "Disapproved" &&
-        r.dateFrom <= today &&
-        r.dateTo >= today
+      (request) => request.overallStatus !== "Disapproved" && request.dateFrom <= TODAY && request.dateTo >= TODAY,
     );
-    const leaveIds = new Set(leaveToday.map((r) => r.employeeId));
-    const lateCount = todayRecords.filter((a) => a.lateMin > 0).length;
+    const leaveIds = new Set(leaveToday.map((request) => request.employeeId));
+    const lateCount = todayAttendance.filter((record) => record.lateMin > 0).length;
+
     return {
       present: presentIds.size,
       absent: absentIds.size,
@@ -75,85 +186,98 @@ export function DashboardPage() {
       late: lateCount,
       total: employees.length,
     };
-  }, [attendance, employees, leaveRequests, today]);
+  }, [todayAttendance, leaveRequests, employees.length]);
 
   const tardinessRanking = useMemo(() => {
-    const startOfMonth = "2025-04-01";
-    const endOfMonth = "2025-04-30";
-    const range = attendance.filter(
-      (a) => a.date >= startOfMonth && a.date <= endOfMonth
-    );
-    const byEmp = new Map<string, { total: number; count: number }>();
-    range.forEach((r) => {
-      if (r.lateMin > 0) {
-        const cur = byEmp.get(r.employeeId) ?? { total: 0, count: 0 };
-        cur.total += r.lateMin;
-        cur.count += 1;
-        byEmp.set(r.employeeId, cur);
+    const byEmployee = new Map<
+      string,
+      { total: number; count: number; employeeName: string; department: string }
+    >();
+
+    monthlyAttendance.forEach((record) => {
+      if (record.lateMin <= 0 || !record.employeeId) {
+        return;
       }
+
+      const current = byEmployee.get(record.employeeId) ?? {
+        total: 0,
+        count: 0,
+        employeeName: record.employeeName,
+        department: record.department,
+      };
+
+      current.total += record.lateMin;
+      current.count += 1;
+      byEmployee.set(record.employeeId, current);
     });
-    return [...byEmp.entries()]
-      .map(([empId, v]) => ({
-        employee: employees.find((e) => e.id === empId),
-        ...v,
-      }))
-      .filter((x) => x.employee)
-      .sort((a, b) => b.total - a.total)
+
+    return [...byEmployee.entries()]
+      .map(([employeeId, value]) => {
+        const employee = employees.find((entry) => entry.id === employeeId);
+        return employee
+          ? {
+              employee,
+              total: value.total,
+              count: value.count,
+            }
+          : null;
+      })
+      .filter((entry): entry is { employee: Employee; total: number; count: number } => Boolean(entry))
+      .sort((left, right) => right.total - left.total)
       .slice(0, 5);
-  }, [attendance, employees]);
+  }, [monthlyAttendance, employees]);
 
   const pendingLeaves = useMemo(
-    () => leaveRequests.filter((r) => r.overallStatus === "Pending"),
-    [leaveRequests]
+    () => leaveRequests.filter((request) => request.overallStatus === "Pending"),
+    [leaveRequests],
   );
 
   const pendingOT = useMemo(
-    () => attendance.filter((a) => a.overtimeStatus === "Pending"),
-    [attendance]
+    () => monthlyAttendance.filter((record) => record.overtimeStatus === "Pending"),
+    [monthlyAttendance],
   );
 
   const activeJobs = useMemo(
-    () => jobPostings.filter((j) => j.status === "Active"),
-    [jobPostings]
+    () => jobPostings.filter((jobPosting) => jobPosting.active === true || jobPosting.status === "Active"),
+    [jobPostings],
   );
 
   const newApplicants = useMemo(
     () =>
       [...applicants]
-        .sort((a, b) => b.appliedDate.localeCompare(a.appliedDate))
+        .sort((left, right) =>
+          (right.appliedDate ?? right.submittedAt ?? "").localeCompare(left.appliedDate ?? left.submittedAt ?? ""),
+        )
         .slice(0, 5),
-    [applicants]
+    [applicants],
   );
 
-  const upcomingInterviews = useMemo(() => {
-    return applicants
-      .filter((a) => a.schedule && a.schedule.date >= today)
-      .sort((a, b) => (a.schedule!.date).localeCompare(b.schedule!.date))
-      .slice(0, 5);
-  }, [applicants, today]);
+  const upcomingInterviews = useMemo(
+    () =>
+      applicants
+        .filter((applicant) => applicant.schedule && applicant.schedule.date >= TODAY)
+        .sort((left, right) => {
+          const leftKey = `${left.schedule?.date ?? ""} ${left.schedule?.time ?? ""}`;
+          const rightKey = `${right.schedule?.date ?? ""} ${right.schedule?.time ?? ""}`;
+          return leftKey.localeCompare(rightKey);
+        })
+        .slice(0, 5),
+    [applicants],
+  );
 
-  const nextHoliday = useMemo(() => {
-    return holidays
-      .filter((h) => h.date > today)
-      .sort((a, b) => a.date.localeCompare(b.date))[0];
-  }, [holidays, today]);
-
-  function handleApproveOT(attId: string, approve: boolean) {
-    approveOvertime(attId, approve);
-    toast({
-      title: approve ? "Overtime Approved" : "Overtime Rejected",
-      description: `Record ${attId} ${approve ? "approved" : "rejected"}.`,
-    });
-  }
-
-  function empName(id: string) {
-    const e = employees.find((x) => x.id === id);
-    return e ? `${e.lastName}, ${e.firstName}` : id;
-  }
+  const nextHoliday = useMemo(
+    () => holidays.filter((holiday) => holiday.date > TODAY).sort((left, right) => left.date.localeCompare(right.date))[0],
+    [holidays],
+  );
 
   function openEmployee(id: string) {
     setSelectedEmployeeId(id);
     setView("hr:employee-details");
+  }
+
+  function openScheduledInterview(applicantId: string) {
+    setSelectedInterviewApplicantId(applicantId);
+    setView("hr:interview-scheduling");
   }
 
   return (
@@ -161,45 +285,42 @@ export function DashboardPage() {
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold text-primary">HR Dashboard</h1>
         <p className="text-sm text-muted-foreground">
-          University of Cebu â€“ South Campus Â· WorkHive HRMS Â· {formatDate(today)}
+          University of Cebu - South Campus - WorkHive HRMS - {formatDate(TODAY)}
         </p>
       </div>
 
-      {/* Today snapshot */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <HexStatCard
           label="Present Today"
-          value={todaySnapshot.present}
+          value={loading ? "-" : todaySnapshot.present}
           sublabel={`of ${todaySnapshot.total} employees`}
           icon={<CheckCircle2 className="h-5 w-5" />}
         />
         <HexStatCard
           label="On Leave Today"
-          value={todaySnapshot.onLeave}
+          value={loading ? "-" : todaySnapshot.onLeave}
           sublabel="approved / pending leaves"
           icon={<Plane className="h-5 w-5" />}
         />
         <HexStatCard
           label="Late Today"
-          value={todaySnapshot.late}
+          value={loading ? "-" : todaySnapshot.late}
           sublabel="clocked in past grace period"
           icon={<Clock className="h-5 w-5" />}
-          accent
         />
         <HexStatCard
           label="Absent Today"
-          value={todaySnapshot.absent}
+          value={loading ? "-" : todaySnapshot.absent}
           sublabel="no time-in recorded"
           icon={<XCircle className="h-5 w-5" />}
         />
       </div>
 
-      {/* Two-column: Tardiness + Pending Leaves */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <CardTitle className="text-base text-primary">
-              Tardiness Highlights â€” April 2025
+              Tardiness Highlights - {CURRENT_MONTH_LABEL}
             </CardTitle>
             <Button
               variant="ghost"
@@ -211,59 +332,65 @@ export function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent className="pt-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Employee</TableHead>
-                  <TableHead className="text-right">Times Late</TableHead>
-                  <TableHead className="text-right">Total Min</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {tardinessRanking.length === 0 && (
+            {monthlyAttendanceQuery.isLoading ? (
+              <div className="flex items-center justify-center py-10 text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading tardiness highlights...
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground py-6">
-                      No tardiness records for this period.
-                    </TableCell>
+                    <TableHead>Employee</TableHead>
+                    <TableHead className="text-right">Times Late</TableHead>
+                    <TableHead className="text-right">Total Min</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
                   </TableRow>
-                )}
-                {tardinessRanking.map((r) => (
-                  <TableRow
-                    key={r.employee!.id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => openEmployee(r.employee!.id)}
-                  >
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <HexagonAvatar
-                          name={`${r.employee!.firstName} ${r.employee!.lastName}`}
-                          color={r.employee!.avatarColor || "#1e3a8a"}
-                          size={28}
-                        />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">
-                            {r.employee!.lastName}, {r.employee!.firstName}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {r.employee!.department}
-                          </p>
+                </TableHeader>
+                <TableBody>
+                  {tardinessRanking.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={4} className="py-6 text-center text-muted-foreground">
+                        No tardiness records for this period.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {tardinessRanking.map((record) => (
+                    <TableRow
+                      key={record.employee.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => openEmployee(record.employee.id)}
+                    >
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <HexagonAvatar
+                            name={`${record.employee.firstName} ${record.employee.lastName}`}
+                            color={record.employee.avatarColor || "#1e3a8a"}
+                            size={28}
+                          />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">
+                              {record.employee.lastName}, {record.employee.firstName}
+                            </p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {record.employee.department}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">{r.count}</TableCell>
-                    <TableCell className="text-right font-semibold text-primary">{r.total}</TableCell>
-                    <TableCell className="text-center">
-                      {r.count >= 5 ? (
-                        <Badge className="bg-red-500/15 text-red-600 hover:bg-red-500/15">Habitual</Badge>
-                      ) : (
-                        <Badge variant="secondary">Normal</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      </TableCell>
+                      <TableCell className="text-right">{record.count}</TableCell>
+                      <TableCell className="text-right font-semibold text-primary">{record.total}</TableCell>
+                      <TableCell className="text-center">
+                        {record.count >= 5 ? (
+                          <Badge className="bg-red-500/15 text-red-600 hover:bg-red-500/15">Habitual</Badge>
+                        ) : (
+                          <Badge variant="secondary">Normal</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
 
@@ -282,104 +409,107 @@ export function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="max-h-72 overflow-y-auto scroll-thin space-y-2">
-              {pendingLeaves.length === 0 && (
-                <p className="text-center text-muted-foreground py-6">
-                  No pending leave requests.
-                </p>
-              )}
-              {pendingLeaves.map((lv) => {
-                const e = employees.find((x) => x.id === lv.employeeId);
-                return (
-                  <div
-                    key={lv.id}
-                    className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <HexagonAvatar
-                        name={e ? `${e.firstName} ${e.lastName}` : "?"}
-                        color={e?.avatarColor || "#1e3a8a"}
-                        size={26}
-                      />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {e ? `${e.lastName}, ${e.firstName}` : lv.employeeId}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {lv.leaveType} Â· {formatDateShort(lv.dateFrom)} â€“ {formatDateShort(lv.dateTo)} Â· {lv.days}d
-                        </p>
+            <div className="max-h-72 space-y-2 overflow-y-auto scroll-thin">
+              {leaveDashboardQuery.isLoading ? (
+                <div className="flex items-center justify-center py-10 text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading leave approvals...
+                </div>
+              ) : pendingLeaves.length === 0 ? (
+                <p className="py-6 text-center text-muted-foreground">No pending leave requests.</p>
+              ) : (
+                pendingLeaves.map((leaveRequest) => {
+                  const employee = employees.find((entry) => entry.id === leaveRequest.employeeId);
+                  return (
+                    <div
+                      key={leaveRequest.id}
+                      className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2"
+                    >
+                      <div className="min-w-0 flex items-center gap-2">
+                        <HexagonAvatar
+                          name={employee ? `${employee.firstName} ${employee.lastName}` : leaveRequest.employeeId}
+                          color={employee?.avatarColor || "#1e3a8a"}
+                          size={26}
+                        />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {employee ? `${employee.lastName}, ${employee.firstName}` : leaveRequest.employeeId}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {leaveRequest.leaveType} - {formatDateShort(leaveRequest.dateFrom)} - {formatDateShort(leaveRequest.dateTo)} - {leaveRequest.days}d
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <HexagonBadge color={leaveStatusColor(leaveRequest.overallStatus)}>
+                          {leaveRequest.stages[leaveRequest.currentStageIndex]?.stage ?? "Pending"}
+                        </HexagonBadge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setView("hr:leave-management")}
+                        >
+                          Review
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <HexagonBadge color={leaveStatusColor(lv.overallStatus)}>
-                        {lv.stages[lv.currentStageIndex]?.stage}
-                      </HexagonBadge>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setView("hr:leave-management")}
-                      >
-                        Review
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Pending OT + Active jobs + new applicants */}
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-1">
           <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base text-primary">
-              Pending Overtime Approvals
-            </CardTitle>
+            <CardTitle className="text-base text-primary">Pending Overtime Approvals</CardTitle>
             <Badge variant="outline" className="border-primary/40 text-primary">
               {pendingOT.length}
             </Badge>
           </CardHeader>
           <CardContent className="pt-0">
-            <div className="max-h-64 overflow-y-auto scroll-thin space-y-2">
-              {pendingOT.length === 0 && (
-                <p className="text-center text-muted-foreground py-6">
-                  No pending overtime requests.
-                </p>
-              )}
-              {pendingOT.slice(0, 8).map((ot) => (
-                <div
-                  key={ot.id}
-                  className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {empName(ot.employeeId)}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDateShort(ot.date)} Â· {ot.overtimeHrs}h OT
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="sm"
-                      className="h-7 bg-green-600 hover:bg-green-700 text-white"
-                      onClick={() => handleApproveOT(ot.id, true)}
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 text-red-600 border-red-300 hover:bg-red-50"
-                      onClick={() => handleApproveOT(ot.id, false)}
-                    >
-                      <XCircle className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+            <div className="max-h-64 space-y-2 overflow-y-auto scroll-thin">
+              {monthlyAttendanceQuery.isLoading ? (
+                <div className="flex items-center justify-center py-10 text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading overtime approvals...
                 </div>
-              ))}
+              ) : pendingOT.length === 0 ? (
+                <p className="py-6 text-center text-muted-foreground">No pending overtime requests.</p>
+              ) : (
+                pendingOT.slice(0, 8).map((record) => (
+                  <div
+                    key={record.id}
+                    className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">{record.employeeName}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDateShort(record.date)} - {record.overtimeHrs}h OT
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        size="sm"
+                        className="h-7 bg-green-600 text-white hover:bg-green-700"
+                        disabled={overtimeMutation.isPending}
+                        onClick={() => overtimeMutation.mutate({ attendanceId: record.id, approve: true })}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 border-red-300 text-red-600 hover:bg-red-50"
+                        disabled={overtimeMutation.isPending}
+                        onClick={() => overtimeMutation.mutate({ attendanceId: record.id, approve: false })}
+                      >
+                        <XCircle className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </CardContent>
         </Card>
@@ -400,24 +530,27 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-2">
-              {activeJobs.slice(0, 4).map((j) => (
-                <div
-                  key={j.id}
-                  className="rounded-lg border border-border bg-muted/30 px-3 py-2"
-                >
-                  <p className="text-sm font-medium truncate">{j.title}</p>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground mt-0.5">
-                    <span>{j.department}</span>
-                    <span className="font-medium text-primary">
-                      {applicants.filter((a) => a.jobId === j.id).length} applicants
-                    </span>
-                  </div>
+              {jobPostingsQuery.isLoading ? (
+                <div className="flex items-center justify-center py-10 text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading job postings...
                 </div>
-              ))}
-              {activeJobs.length === 0 && (
-                <p className="text-center text-muted-foreground py-6">
-                  No active postings.
-                </p>
+              ) : activeJobs.length === 0 ? (
+                <p className="py-6 text-center text-muted-foreground">No active postings.</p>
+              ) : (
+                activeJobs.slice(0, 4).map((jobPosting) => (
+                  <div
+                    key={jobPosting.id}
+                    className="rounded-lg border border-border bg-muted/30 px-3 py-2"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="truncate text-sm font-medium">{jobPosting.title}</p>
+                      <span className="shrink-0 text-sm font-medium text-primary">
+                        {applicants.filter((applicant) => applicant.jobId === jobPosting.id).length} applicants
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{jobPosting.department}</p>
+                  </div>
+                ))
               )}
             </div>
           </CardContent>
@@ -439,34 +572,39 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-2">
-              {newApplicants.map((a) => {
-                const job = jobPostings.find((j) => j.id === a.jobId);
-                return (
-                  <div
-                    key={a.id}
-                    className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <HexagonAvatar name={a.name} size={26} color="#0e7490" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{a.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {job?.title ?? "â€”"}
-                        </p>
+              {applicationsQuery.isLoading ? (
+                <div className="flex items-center justify-center py-10 text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading applicants...
+                </div>
+              ) : newApplicants.length === 0 ? (
+                <p className="py-6 text-center text-muted-foreground">No applicants yet.</p>
+              ) : (
+                newApplicants.map((applicant) => {
+                  const jobPosting = jobPostings.find((entry) => entry.id === applicant.jobId);
+                  return (
+                    <div
+                      key={applicant.id}
+                      className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2"
+                    >
+                      <div className="min-w-0 flex items-center gap-2">
+                        <HexagonAvatar name={applicantDisplayName(applicant)} size={26} color="#0e7490" />
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{applicantDisplayName(applicant)}</p>
+                          <p className="truncate text-xs text-muted-foreground">{jobPosting?.title ?? "-"}</p>
+                        </div>
                       </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {applicant.stage}
+                      </Badge>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {a.stage}
-                    </Badge>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Upcoming interviews + holiday reminder */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
@@ -484,50 +622,48 @@ export function DashboardPage() {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="space-y-2">
-              {upcomingInterviews.length === 0 && (
-                <p className="text-center text-muted-foreground py-6">
-                  No scheduled interviews.
-                </p>
-              )}
-              {upcomingInterviews.map((a) => {
-                const job = jobPostings.find((j) => j.id === a.jobId);
-                return (
-                  <div
-                    key={a.id}
-                    className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="flex h-10 w-12 flex-col items-center justify-center rounded-md bg-primary text-primary-foreground">
-                        <span className="text-[10px] uppercase">
-                          {new Date(a.schedule!.date + "T00:00:00").toLocaleDateString("en-US", { month: "short" })}
-                        </span>
-                        <span className="text-sm font-bold leading-none">
-                          {new Date(a.schedule!.date + "T00:00:00").getDate()}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{a.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {a.schedule!.time} Â· {a.schedule!.interviewer} Â· {a.schedule!.platform}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {job?.title}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedInterviewApplicantId(a.id);
-                        setView("hr:video-conferencing");
-                      }}
+              {applicationsQuery.isLoading ? (
+                <div className="flex items-center justify-center py-10 text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading upcoming interviews...
+                </div>
+              ) : upcomingInterviews.length === 0 ? (
+                <p className="py-6 text-center text-muted-foreground">No scheduled interviews.</p>
+              ) : (
+                upcomingInterviews.map((applicant) => {
+                  const jobPosting = jobPostings.find((entry) => entry.id === applicant.jobId);
+                  return (
+                    <div
+                      key={applicant.id}
+                      className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2"
                     >
-                      Join
-                    </Button>
-                  </div>
-                );
-              })}
+                      <div className="min-w-0 flex items-center gap-3">
+                        <div className="flex h-10 w-12 flex-col items-center justify-center rounded-md bg-primary text-primary-foreground">
+                          <span className="text-[10px] uppercase">
+                            {new Date(`${applicant.schedule!.date}T00:00:00`).toLocaleDateString("en-US", { month: "short" })}
+                          </span>
+                          <span className="text-sm font-bold leading-none">
+                            {new Date(`${applicant.schedule!.date}T00:00:00`).getDate()}
+                          </span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">{applicantDisplayName(applicant)}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {applicant.schedule!.time} - {applicant.schedule!.panel?.[0] ?? "TBD"} - {applicant.schedule!.mode}
+                          </p>
+                          <p className="truncate text-xs text-muted-foreground">{jobPosting?.title ?? "-"}</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openScheduledInterview(applicant.id)}
+                      >
+                        View Schedule
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </CardContent>
         </Card>
@@ -539,15 +675,17 @@ export function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            {nextHoliday ? (
+            {holidaysQuery.isLoading ? (
+              <div className="flex items-center justify-center py-10 text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading holidays...
+              </div>
+            ) : nextHoliday ? (
               <div className="rounded-lg border border-gold/30 bg-gold/5 px-4 py-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      {nextHoliday.name}
-                    </p>
+                    <p className="text-sm font-semibold text-foreground">{nextHoliday.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {formatDate(nextHoliday.date)} Â· {nextHoliday.type}
+                      {formatDate(nextHoliday.date)} - {nextHoliday.type}
                     </p>
                   </div>
                   <HexagonBadge color="#ca8a04">{nextHoliday.type}</HexagonBadge>
@@ -560,15 +698,11 @@ export function DashboardPage() {
                   >
                     View Calendar
                   </Button>
-                  <span className="text-xs text-muted-foreground">
-                    Automated email reminder scheduled 3 days prior.
-                  </span>
+                  <span className="text-xs text-muted-foreground">Automated email reminder scheduled 3 days prior.</span>
                 </div>
               </div>
             ) : (
-              <p className="text-center text-muted-foreground py-6">
-                No upcoming holidays.
-              </p>
+              <p className="py-6 text-center text-muted-foreground">No upcoming holidays.</p>
             )}
 
             <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
@@ -579,7 +713,7 @@ export function DashboardPage() {
               <div className="rounded-md bg-muted/40 p-2">
                 <p className="text-muted-foreground">Regular Status</p>
                 <p className="text-base font-bold text-primary">
-                  {employees.filter((e) => e.employmentStatus === "Regular").length}
+                  {employees.filter((employee) => employee.employmentStatus === "Regular").length}
                 </p>
               </div>
             </div>

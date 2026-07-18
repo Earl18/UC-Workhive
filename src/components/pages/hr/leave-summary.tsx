@@ -26,6 +26,7 @@ import { formatDate, formatLeaveDayCount } from "@/components/shared/helpers";
 import { isLeaveTypeApplicableToEmployee } from "@/lib/types";
 import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SearchableFilterSelect } from "@/components/shared/filter-controls";
 
 type LeaveSummaryRow = {
   employeeId: string;
@@ -200,9 +201,7 @@ export function LeaveSummaryPage() {
     }
   }
 
-  if (summaryQuery.isLoading && !summaryQuery.data) {
-    return <div className="p-6 text-sm text-muted-foreground">Loading leave summary...</div>;
-  }
+  const isLeaveSummaryLoading = summaryQuery.isLoading;
 
   if (summaryQuery.error) {
     return (
@@ -231,50 +230,71 @@ export function LeaveSummaryPage() {
       <Card>
         <CardContent className="pt-0">
           <div className="grid gap-3 xl:grid-cols-5">
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-foreground">Employee</Label>
-              <Select value={effectiveEmployeeFilter} onValueChange={setEmployeeFilter}>
-                <SelectTrigger className="h-[44px] w-full data-[size=default]:h-[44px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Employees</SelectItem>
-                  {employeeOptions.map((employee) => <SelectItem key={employee.value} value={employee.value}>{employee.label}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-foreground">Department</Label>
-              <Select value={deptFilter} onValueChange={setDeptFilter}>
-                <SelectTrigger className="h-[44px] w-full data-[size=default]:h-[44px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All Departments</SelectItem>
-                  {departments.map((department) => <SelectItem key={department} value={department}>{department}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-foreground">Position</Label>
-              <Select value={effectivePositionFilter} onValueChange={setPositionFilter}>
-                <SelectTrigger className="h-[44px] w-full data-[size=default]:h-[44px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Positions</SelectItem>
-                  {positionOptions.map((position) => <SelectItem key={position} value={position}>{position}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-foreground">E-Status</Label>
-              <Select value={effectiveStatusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="h-[44px] w-full data-[size=default]:h-[44px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All E-Status</SelectItem>
-                  {statusOptions.map((status) => <SelectItem key={status} value={status}>{status}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+            <SearchableFilterSelect
+              label="Employee"
+              value={effectiveEmployeeFilter}
+              onValueChange={setEmployeeFilter}
+              options={[
+                { value: "all", label: "All Employees" },
+                ...employeeOptions,
+              ]}
+              searchPlaceholder="Search employee..."
+              emptyLabel="No employee found."
+              triggerClassName="h-11 rounded-md border-input bg-background text-left shadow-xs hover:bg-background"
+              labelClassName="text-sm font-medium text-foreground"
+            />
+            <SearchableFilterSelect
+              label="Department"
+              value={deptFilter}
+              onValueChange={setDeptFilter}
+              options={[
+                { value: "All", label: "All Departments" },
+                ...departments.map((department) => ({
+                  value: department,
+                  label: department,
+                })),
+              ]}
+              searchPlaceholder="Search department..."
+              emptyLabel="No department found."
+              triggerClassName="h-11 rounded-md border-input bg-background text-left shadow-xs hover:bg-background"
+              labelClassName="text-sm font-medium text-foreground"
+            />
+            <SearchableFilterSelect
+              label="Position"
+              value={effectivePositionFilter}
+              onValueChange={setPositionFilter}
+              options={[
+                { value: "all", label: "All Positions" },
+                ...positionOptions.map((position) => ({
+                  value: position,
+                  label: position,
+                })),
+              ]}
+              searchPlaceholder="Search position..."
+              emptyLabel="No position found."
+              triggerClassName="h-11 rounded-md border-input bg-background text-left shadow-xs hover:bg-background"
+              labelClassName="text-sm font-medium text-foreground"
+            />
+            <SearchableFilterSelect
+              label="E-Status"
+              value={effectiveStatusFilter}
+              onValueChange={setStatusFilter}
+              options={[
+                { value: "all", label: "All E-Status" },
+                ...statusOptions.map((status) => ({
+                  value: status,
+                  label: status,
+                })),
+              ]}
+              searchPlaceholder="Search employment status..."
+              emptyLabel="No employment status found."
+              triggerClassName="h-11 rounded-md border-input bg-background text-left shadow-xs hover:bg-background"
+              labelClassName="text-sm font-medium text-foreground"
+            />
             <div className="space-y-1.5">
               <Label className="text-sm font-medium text-foreground">Records</Label>
               <div className="flex h-[44px] w-full items-center justify-center rounded-xl border border-primary/40 px-4 text-sm font-semibold text-primary">
-                {rows.length} of {sourceRows.length} employee{sourceRows.length === 1 ? "" : "s"}
+                {isLeaveSummaryLoading ? 0 : rows.length} of {sourceRows.length} employee{sourceRows.length === 1 ? "" : "s"}
               </div>
             </div>
           </div>
@@ -303,7 +323,13 @@ export function LeaveSummaryPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row) => (
+                {isLeaveSummaryLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={11} className="py-12 text-center text-sm text-muted-foreground">
+                      <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading leave summary records...
+                    </TableCell>
+                  </TableRow>
+                ) : rows.map((row) => (
                   <TableRow key={row.employeeId}>
                     <TableCell>
                       <div className="flex items-start gap-2.5">
@@ -383,3 +409,5 @@ export function LeaveSummaryPage() {
     </div>
   );
 }
+
+

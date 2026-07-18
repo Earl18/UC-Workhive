@@ -26,6 +26,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useWorkHive } from "@/lib/store";
+import { FEATURE_TOGGLE_META } from "@/lib/feature-access";
 import { HexagonAvatar } from "@/components/shared/hexagon";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -111,14 +112,12 @@ export function DashboardPage() {
     { label: "Audit Events", value: summary.auditEventCount, icon: Clock },
   ];
 
-  const moduleRegistry = [
-    { key: "manualAttendance", label: "Manual Attendance", desc: "Time In/Out logging", on: summary.modules.manualAttendance },
-    { key: "qrAttendance", label: "QR Attendance", desc: "QR code scanning", on: summary.modules.qrAttendance },
-    { key: "gpsAttendance", label: "GPS Geofencing", desc: "Location-based attendance", on: summary.modules.gpsAttendance },
-    { key: "leaveModule", label: "Leave Management", desc: "Filing & approvals", on: summary.modules.leaveModule },
-    { key: "overtimeModule", label: "Overtime", desc: "OT approval workflow", on: summary.modules.overtimeModule },
-    { key: "recruitmentModule", label: "Recruitment", desc: "Job postings & applicants", on: summary.modules.recruitmentModule },
-  ];
+  const moduleRegistry = FEATURE_TOGGLE_META.map((item) => ({
+    key: item.key,
+    label: item.label,
+    desc: item.affects,
+    on: summary.modules[item.key],
+  }));
 
   const operationalChecks = [
     {
@@ -139,11 +138,11 @@ export function DashboardPage() {
     },
     {
       label: "GPS Geofencing",
-      value: summary.systemChecks.gpsAttendanceEnabled ? "Online" : "Offline",
+      value: summary.systemChecks.gpsAttendanceEnabled ? "Configured" : "No zones",
       pct: summary.systemChecks.gpsAttendanceEnabled ? 100 : 0,
       icon: Wifi,
       healthy: summary.systemChecks.gpsAttendanceEnabled,
-      detail: summary.systemChecks.gpsAttendanceEnabled ? "Location attendance active" : "GPS attendance is disabled",
+      detail: summary.systemChecks.gpsAttendanceEnabled ? "Attendance zones are available" : "No GPS attendance zones configured",
     },
     {
       label: "30-Day Uptime",
@@ -311,7 +310,7 @@ export function DashboardPage() {
               Module Registry
             </CardTitle>
             <CardDescription>
-              {summary.enabledModuleCount} of {totalModules} modules enabled - Employee portal visibility
+              {summary.enabledModuleCount} of {totalModules} portal pages enabled
             </CardDescription>
           </CardHeader>
           <CardContent>

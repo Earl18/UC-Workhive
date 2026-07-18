@@ -2,6 +2,7 @@
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getFeatureToggles, logAuditEvent } from "@/lib/admin-data";
+import { FEATURE_TOGGLE_KEYS } from "@/lib/feature-access";
 import type { FeatureToggles } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
@@ -20,17 +21,15 @@ export async function PUT(request: NextRequest) {
   }
 
   const body = (await request.json()) as Partial<FeatureToggles>;
-  const current = await db.featureToggleConfig.findUniqueOrThrow({ where: { id: "default" } });
-  const updated = await db.featureToggleConfig.update({
+  const current = await getFeatureToggles();
+  const data = Object.fromEntries(
+    FEATURE_TOGGLE_KEYS.map((key) => [key, body[key] ?? current[key]]),
+  ) as FeatureToggles;
+
+  const updated = await db.featureToggleConfig.upsert({
     where: { id: "default" },
-    data: {
-      manualAttendance: body.manualAttendance ?? current.manualAttendance,
-      qrAttendance: body.qrAttendance ?? current.qrAttendance,
-      leaveModule: body.leaveModule ?? current.leaveModule,
-      recruitmentModule: body.recruitmentModule ?? current.recruitmentModule,
-      gpsAttendance: body.gpsAttendance ?? current.gpsAttendance,
-      overtimeModule: body.overtimeModule ?? current.overtimeModule,
-    },
+    update: data,
+    create: { id: "default", ...data },
   });
 
   const changedKey = Object.keys(body)[0] ?? "feature toggle";
@@ -42,13 +41,8 @@ export async function PUT(request: NextRequest) {
   });
 
   return NextResponse.json({
-    featureToggles: {
-      manualAttendance: updated.manualAttendance,
-      qrAttendance: updated.qrAttendance,
-      leaveModule: updated.leaveModule,
-      recruitmentModule: updated.recruitmentModule,
-      gpsAttendance: updated.gpsAttendance,
-      overtimeModule: updated.overtimeModule,
-    },
+    featureToggles: Object.fromEntries(
+      FEATURE_TOGGLE_KEYS.map((key) => [key, updated[key]]),
+    ) as FeatureToggles,
   });
 }

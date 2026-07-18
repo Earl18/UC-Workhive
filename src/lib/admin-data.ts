@@ -43,12 +43,29 @@ const DEFAULT_SETTINGS: SystemSettingsRecord = {
 };
 
 const DEFAULT_TOGGLES: FeatureToggles = {
-  manualAttendance: true,
-  qrAttendance: true,
-  leaveModule: true,
-  recruitmentModule: true,
-  gpsAttendance: false,
-  overtimeModule: true,
+  employeeDashboard: true,
+  employeeProfile: true,
+  employeeTimeClock: true,
+  employeeAttendanceHistory: true,
+  employeeLeave: true,
+  employeeHolidays: true,
+  employeeDocuments: true,
+  employeeNotifications: true,
+  hrDashboard: true,
+  hrEmployees: true,
+  hrAttendanceReport: true,
+  hrAttendanceValidation: true,
+  hrAttendanceSummary: true,
+  hrTardiness: true,
+  hrLeaveManagement: true,
+  hrLeaveSummary: true,
+  hrJobPostings: true,
+  hrApplications: true,
+  hrInterviewScheduling: true,
+  hrInterviews: true,
+  hrVideoConferencing: true,
+  hrHolidays: true,
+  hrReports: true,
 };
 
 const DEFAULT_EMAIL_TEMPLATES: EmailTemplate[] = [
@@ -576,12 +593,29 @@ export async function getFeatureToggles(): Promise<FeatureToggles> {
     const toggles = await db.featureToggleConfig.findUnique({ where: { id: "default" } });
     if (toggles) {
       const value = {
-        manualAttendance: toggles.manualAttendance,
-        qrAttendance: toggles.qrAttendance,
-        leaveModule: toggles.leaveModule,
-        recruitmentModule: toggles.recruitmentModule,
-        gpsAttendance: toggles.gpsAttendance,
-        overtimeModule: toggles.overtimeModule,
+        employeeDashboard: toggles.employeeDashboard,
+        employeeProfile: toggles.employeeProfile,
+        employeeTimeClock: toggles.employeeTimeClock,
+        employeeAttendanceHistory: toggles.employeeAttendanceHistory,
+        employeeLeave: toggles.employeeLeave,
+        employeeHolidays: toggles.employeeHolidays,
+        employeeDocuments: toggles.employeeDocuments,
+        employeeNotifications: toggles.employeeNotifications,
+        hrDashboard: toggles.hrDashboard,
+        hrEmployees: toggles.hrEmployees,
+        hrAttendanceReport: toggles.hrAttendanceReport,
+        hrAttendanceValidation: toggles.hrAttendanceValidation,
+        hrAttendanceSummary: toggles.hrAttendanceSummary,
+        hrTardiness: toggles.hrTardiness,
+        hrLeaveManagement: toggles.hrLeaveManagement,
+        hrLeaveSummary: toggles.hrLeaveSummary,
+        hrJobPostings: toggles.hrJobPostings,
+        hrApplications: toggles.hrApplications,
+        hrInterviewScheduling: toggles.hrInterviewScheduling,
+        hrInterviews: toggles.hrInterviews,
+        hrVideoConferencing: toggles.hrVideoConferencing,
+        hrHolidays: toggles.hrHolidays,
+        hrReports: toggles.hrReports,
       };
       featureTogglesValueCache = { checkedAt: Date.now(), value };
       return value;
@@ -594,12 +628,29 @@ export async function getFeatureToggles(): Promise<FeatureToggles> {
     });
 
     const seededValue = {
-      manualAttendance: created.manualAttendance,
-      qrAttendance: created.qrAttendance,
-      leaveModule: created.leaveModule,
-      recruitmentModule: created.recruitmentModule,
-      gpsAttendance: created.gpsAttendance,
-      overtimeModule: created.overtimeModule,
+      employeeDashboard: created.employeeDashboard,
+      employeeProfile: created.employeeProfile,
+      employeeTimeClock: created.employeeTimeClock,
+      employeeAttendanceHistory: created.employeeAttendanceHistory,
+      employeeLeave: created.employeeLeave,
+      employeeHolidays: created.employeeHolidays,
+      employeeDocuments: created.employeeDocuments,
+      employeeNotifications: created.employeeNotifications,
+      hrDashboard: created.hrDashboard,
+      hrEmployees: created.hrEmployees,
+      hrAttendanceReport: created.hrAttendanceReport,
+      hrAttendanceValidation: created.hrAttendanceValidation,
+      hrAttendanceSummary: created.hrAttendanceSummary,
+      hrTardiness: created.hrTardiness,
+      hrLeaveManagement: created.hrLeaveManagement,
+      hrLeaveSummary: created.hrLeaveSummary,
+      hrJobPostings: created.hrJobPostings,
+      hrApplications: created.hrApplications,
+      hrInterviewScheduling: created.hrInterviewScheduling,
+      hrInterviews: created.hrInterviews,
+      hrVideoConferencing: created.hrVideoConferencing,
+      hrHolidays: created.hrHolidays,
+      hrReports: created.hrReports,
     };
     featureTogglesValueCache = { checkedAt: Date.now(), value: seededValue };
     return seededValue;
@@ -895,7 +946,7 @@ export async function getAdminDashboardSummary(): Promise<AdminDashboardSummary>
     systemChecks: {
       databaseConnected: true,
       emailServiceConnected,
-      gpsAttendanceEnabled: toggles.gpsAttendance,
+      gpsAttendanceEnabled: zoneCount > 0,
     },
     settings: {
       organizationName: settings.organizationName,

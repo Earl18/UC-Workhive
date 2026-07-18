@@ -1061,12 +1061,29 @@ export const EMAIL_TEMPLATES: EmailTemplate[] = [
 ];
 
 export const FEATURE_TOGGLES: FeatureToggles = {
-  manualAttendance: true,
-  qrAttendance: true,
-  leaveModule: true,
-  recruitmentModule: true,
-  gpsAttendance: false,
-  overtimeModule: true,
+  employeeDashboard: true,
+  employeeProfile: true,
+  employeeTimeClock: true,
+  employeeAttendanceHistory: true,
+  employeeLeave: true,
+  employeeHolidays: true,
+  employeeDocuments: true,
+  employeeNotifications: true,
+  hrDashboard: true,
+  hrEmployees: true,
+  hrAttendanceReport: true,
+  hrAttendanceValidation: true,
+  hrAttendanceSummary: true,
+  hrTardiness: true,
+  hrLeaveManagement: true,
+  hrLeaveSummary: true,
+  hrJobPostings: true,
+  hrApplications: true,
+  hrInterviewScheduling: true,
+  hrInterviews: true,
+  hrVideoConferencing: true,
+  hrHolidays: true,
+  hrReports: true,
 };
 
 export const GEOFENCE_ZONES: GeofenceZone[] = [

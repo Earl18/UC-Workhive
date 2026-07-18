@@ -226,27 +226,51 @@ export type Holiday = {
 };
 
 export type JobType = "Full-Time" | "Part-Time" | "Contractual";
+export type JobPostingStatus = "Active" | "Closed";
+
+export type JobQualification = {
+  title: string;
+  description: string;
+};
+
 export type JobPosting = {
   id: string;
   title: string;
   department: string;
-  positionType: JobType;
-  summary: string;
-  qualifications: string[];
-  postedAt: string;
+  positionType: JobType | string;
+  summary?: string;
+  qualifications?: JobQualification[];
+  postedAt?: string;
   closesAt?: string;
-  active: boolean;
+  active?: boolean;
+  applicantCount?: number;
+  creatorName?: string;
+  description?: string;
+  requirements?: string[];
+  postedDate?: string;
+  deadline?: string;
+  status?: JobPostingStatus;
 };
 
 export type ApplicantStage = "New" | "Screening" | "Interview" | "Offer" | "Hired" | "Rejected";
+
+export type ApplicantStageHistoryEntry = {
+  stage: ApplicantStage;
+  movedBy: string;
+  movedAt: string;
+};
+
 export type InterviewMode = "Onsite" | "Online";
 
 export type InterviewSchedule = {
   date: string;
   time: string;
+  startTime?: string;
+  endTime?: string;
   mode: InterviewMode;
   venueOrLink: string;
   panel: string[];
+  createdBy?: string;
 };
 
 export type InterviewScore = {
@@ -258,16 +282,35 @@ export type InterviewScore = {
 
 export type Applicant = {
   id: string;
-  fullName: string;
+  fullName?: string;
+  name?: string;
   email: string;
-  phone: string;
-  positionApplied: string;
-  department: string;
+  phone?: string;
+  contact?: string;
+  sssNumber?: string;
+  tinNumber?: string;
+  pagIbigNumber?: string;
+  philHealthNumber?: string;
+  positionApplied?: string;
+  department?: string;
+  jobId?: string;
   stage: ApplicantStage;
   resumeFile?: string;
-  submittedAt: string;
+  submittedAt?: string;
+  appliedDate?: string;
+  message?: string;
+  requirementsArchiveName?: string;
+  requirementsArchiveBucket?: string;
+  requirementsArchivePath?: string;
+  requirements?: {
+    key: string;
+    label: string;
+    submitted: boolean;
+  }[];
+  stageHistory?: ApplicantStageHistoryEntry[];
   schedule?: InterviewSchedule;
   scores?: InterviewScore[];
+  interviewScore?: InterviewScore;
 };
 
 export type SystemUser = {
@@ -298,12 +341,29 @@ export type EmailTemplate = {
 };
 
 export type FeatureToggles = {
-  manualAttendance: boolean;
-  qrAttendance: boolean;
-  leaveModule: boolean;
-  recruitmentModule: boolean;
-  gpsAttendance: boolean;
-  overtimeModule: boolean;
+  employeeDashboard: boolean;
+  employeeProfile: boolean;
+  employeeTimeClock: boolean;
+  employeeAttendanceHistory: boolean;
+  employeeLeave: boolean;
+  employeeHolidays: boolean;
+  employeeDocuments: boolean;
+  employeeNotifications: boolean;
+  hrDashboard: boolean;
+  hrEmployees: boolean;
+  hrAttendanceReport: boolean;
+  hrAttendanceValidation: boolean;
+  hrAttendanceSummary: boolean;
+  hrTardiness: boolean;
+  hrLeaveManagement: boolean;
+  hrLeaveSummary: boolean;
+  hrJobPostings: boolean;
+  hrApplications: boolean;
+  hrInterviewScheduling: boolean;
+  hrInterviews: boolean;
+  hrVideoConferencing: boolean;
+  hrHolidays: boolean;
+  hrReports: boolean;
 };
 
 export type GeofenceZone = {
@@ -376,3 +436,9 @@ export const DEPARTMENTS = [
   "Registrar's Office",
   "Student Affairs",
 ] as const;
+
+
+
+
+
+

@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { useWorkHive } from "@/lib/store";
+import { getFallbackViewForRole, isViewEnabled } from "@/lib/feature-access";
 import { AppShell } from "@/components/app-shell";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
 import { useHolidayRecords } from "@/hooks/use-holidays";
@@ -11,6 +12,7 @@ import { useHolidayRecords } from "@/hooks/use-holidays";
 import { LandingPage } from "@/components/pages/public/landing";
 import { AboutPage } from "@/components/pages/public/about";
 import { CareersPage } from "@/components/pages/public/careers";
+import { PrivacyPage } from "@/components/pages/public/privacy";
 import { JobDetailPage } from "@/components/pages/public/job-detail";
 import { LoginPage } from "@/components/pages/public/login";
 
@@ -18,6 +20,7 @@ import { LoginPage } from "@/components/pages/public/login";
 import { DashboardPage as EmpDashboard } from "@/components/pages/employee/dashboard";
 import { ProfilePage as EmpProfile } from "@/components/pages/employee/profile";
 import { AttendancePage as EmpAttendance } from "@/components/pages/employee/attendance";
+import { TimeClockPage as EmpTimeClock } from "@/components/pages/employee/time-clock";
 import { LeavePage as EmpLeave } from "@/components/pages/employee/leave";
 import { HolidaysPage as EmpHolidays } from "@/components/pages/employee/holidays";
 import { DocumentsPage as EmpDocuments } from "@/components/pages/employee/documents";
@@ -48,29 +51,21 @@ import { EmailTemplatesPage as AdminEmailTemplates } from "@/components/pages/ad
 import { AuditLogPage as AdminAuditLog } from "@/components/pages/admin/audit-log";
 import type { SystemUser } from "@/lib/types";
 
-function PageLoadingState() {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground shadow-sm">
-      Loading page...
-    </div>
-  );
-}
-
 const HrAttendance = dynamic(
   () => import("@/components/pages/hr/attendance").then((module) => module.AttendancePage),
-  { loading: () => <PageLoadingState /> },
+  { loading: () => null },
 );
 const HrAttendanceValidation = dynamic(
   () => import("@/components/pages/hr/attendance-validation").then((module) => module.AttendanceValidationPage),
-  { loading: () => <PageLoadingState /> },
+  { loading: () => null },
 );
 const HrAttendanceSummary = dynamic(
   () => import("@/components/pages/hr/attendance-summary").then((module) => module.AttendanceSummaryPage),
-  { loading: () => <PageLoadingState /> },
+  { loading: () => null },
 );
 const HrTardiness = dynamic(
   () => import("@/components/pages/hr/tardiness").then((module) => module.TardinessPage),
-  { loading: () => <PageLoadingState /> },
+  { loading: () => null },
 );
 
 const PERSISTENT_HR_ATTENDANCE_VIEWS = [
@@ -118,7 +113,7 @@ function PersistentHrAttendancePages({ activeView }: { activeView: (typeof PERSI
 }
 
 export function WorkHiveApp() {
-  const { currentUser, view, hydrateSession, setFeatureToggles, setHolidays } = useWorkHive();
+  const { currentUser, view, hydrateSession, setFeatureToggles, setHolidays, featureToggles, setView } = useWorkHive();
   const [authReady, setAuthReady] = useState(false);
   const { data: featureToggleData } = useFeatureToggles();
   const { data: holidayData } = useHolidayRecords();
@@ -134,6 +129,16 @@ export function WorkHiveApp() {
       setHolidays(holidayData.holidays);
     }
   }, [holidayData, setHolidays]);
+
+  useEffect(() => {
+    if (!currentUser) {
+      return;
+    }
+
+    if (!isViewEnabled(view, featureToggles)) {
+      setView(getFallbackViewForRole(currentUser.role, featureToggles));
+    }
+  }, [currentUser, featureToggles, setView, view]);
 
   const syncSession = useCallback(async (allowLogoutOnFailure: boolean) => {
     try {
@@ -209,6 +214,7 @@ export function WorkHiveApp() {
       case "public:landing": return <LandingPage />;
       case "public:about": return <AboutPage />;
       case "public:careers": return <CareersPage />;
+      case "public:privacy": return <PrivacyPage />;
       case "public:job-detail": return <JobDetailPage />;
       case "public:login": return <LoginPage />;
       default: return <LandingPage />;
@@ -231,6 +237,7 @@ function renderPortalView(view: string) {
     case "employee:dashboard": return <EmpDashboard />;
     case "employee:profile": return <EmpProfile />;
     case "employee:attendance": return <EmpAttendance />;
+    case "employee:time-clock": return <EmpTimeClock />;
     case "employee:leave": return <EmpLeave />;
     case "employee:holidays": return <EmpHolidays />;
     case "employee:documents": return <EmpDocuments />;
@@ -262,3 +269,8 @@ function renderPortalView(view: string) {
     default: return <EmpDashboard />;
   }
 }
+
+
+
+
+

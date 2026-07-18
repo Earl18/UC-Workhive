@@ -26,7 +26,6 @@ import {
 import {
   Clock,
   LogIn,
-  LogOut,
   Bell,
   CalendarDays,
   Plane,
@@ -304,13 +303,13 @@ export function DashboardPage() {
       </Card>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2 border-border opacity-80">
+        <Card className="lg:col-span-2 border-border">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
               <Clock className="h-4 w-4 text-primary" /> Attendance Status
             </CardTitle>
             <CardDescription>
-              Attendance actions are visible but disabled until this feature is fully implemented.
+              Record attendance through the new employee time clock or QR attendance page.
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
@@ -321,8 +320,8 @@ export function DashboardPage() {
               <p className="mt-1 font-mono text-2xl font-bold text-foreground">
                 --:-- --
               </p>
-              <Button className="mt-3 w-full" disabled>
-                <LogIn className="h-4 w-4" /> Time In
+              <Button className="mt-3 w-full" onClick={() => setView("employee:time-clock")}>
+                <LogIn className="h-4 w-4" /> Open Time Clock
               </Button>
             </div>
             <div className="rounded-xl border border-border bg-muted/40 p-4">
@@ -332,12 +331,9 @@ export function DashboardPage() {
               <p className="mt-1 font-mono text-2xl font-bold text-foreground">
                 --:-- --
               </p>
-              <Button className="mt-3 w-full" variant="outline" disabled>
-                <LogOut className="h-4 w-4" /> Time Out
-              </Button>
             </div>
             <div className="sm:col-span-2 rounded-lg border border-dashed border-border bg-card px-4 py-3 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground">Today's status:</span> This section stays visible for the original layout, but attendance actions are not active yet.
+              <span className="font-medium text-foreground">Today's status:</span> Use the buttons above to open the employee attendance tools and record your punches live.
             </div>
           </CardContent>
         </Card>
@@ -351,6 +347,7 @@ export function DashboardPage() {
             <QuickLink icon={<UserIcon className="h-4 w-4" />} label="Update Profile" hint="Edit personal info" onClick={() => setView("employee:profile")} />
             <QuickLink icon={<FileText className="h-4 w-4" />} label="Upload Certificates" hint="Manage documents" onClick={() => setView("employee:documents")} />
             <QuickLink icon={<Plane className="h-4 w-4" />} label="File a Leave" hint="Submit application" onClick={() => setView("employee:leave")} />
+            <QuickLink icon={<Clock className="h-4 w-4" />} label="Time In / Out" hint="Record attendance" onClick={() => setView("employee:time-clock")} />
             <QuickLink icon={<CalendarClock className="h-4 w-4" />} label="View Attendance" hint="See history" onClick={() => setView("employee:attendance")} />
           </CardContent>
         </Card>

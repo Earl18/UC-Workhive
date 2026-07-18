@@ -22,6 +22,9 @@ import {
   Plane,
   CircleAlert,
   KeyRound,
+  Upload,
+  Download,
+  FileText,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -33,9 +36,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useWorkHive } from "@/lib/store";
 import { HexagonBadge } from "@/components/shared/hexagon";
 import { useAdminSystemSettings } from "@/hooks/use-system-settings";
+import { useAdminApplicantTemplate } from "@/hooks/use-applicant-template";
 import type { SystemSettingsApiResponse, SystemSettingsHealth, SystemSettingsRecord } from "@/lib/admin-types";
 import { buildAcademicYearOptions, DEFAULT_SYSTEM_SETTINGS, normalizeAcademicYear } from "@/lib/system-settings";
 import { PASSWORD_REQUIREMENTS_MESSAGE } from "@/lib/role-default-passwords";
+import { APPLICANT_TEMPLATE_ACCEPT } from "@/lib/employee-document-config";
 
 const SEMESTER_OPTIONS = ["1st Semester", "2nd Semester", "Summer"] as const;
 const DEFAULT_HEALTH: SystemSettingsHealth = {
@@ -48,7 +53,6 @@ type AddressSearchResult = {
   name: string;
   formattedAddress: string;
 };
-
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -128,9 +132,11 @@ export function SettingsPage() {
   const queryClient = useQueryClient();
   const { setView } = useWorkHive();
   const { data, isLoading, error } = useAdminSystemSettings();
+  const applicantTemplateQuery = useAdminApplicantTemplate();
 
   const [savedSettings, setSavedSettings] = useState<SystemSettingsRecord>(DEFAULT_SYSTEM_SETTINGS);
   const [form, setForm] = useState<SystemSettingsRecord>(DEFAULT_SYSTEM_SETTINGS);
+  const [applicantTemplateFile, setApplicantTemplateFile] = useState<File | null>(null);
   const [addressResults, setAddressResults] = useState<AddressSearchResult[]>([]);
   const [addressSearchLoading, setAddressSearchLoading] = useState(false);
   const [addressSearchError, setAddressSearchError] = useState<string | null>(null);
@@ -259,6 +265,41 @@ export function SettingsPage() {
     onError: (mutationError) => {
       toast({
         title: "Unable to save settings",
+        description: mutationError instanceof Error ? mutationError.message : "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+
+  const applicantTemplateUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const payload = new FormData();
+      payload.set("templateFile", file);
+
+      const response = await fetch("/api/admin/settings/applicant-template", {
+        method: "POST",
+        body: payload,
+      });
+
+      const rawBody = await response.text();
+      const body = rawBody ? JSON.parse(rawBody) as { error?: string } : {};
+      if (!response.ok) {
+        throw new Error(body.error ?? "Unable to upload the applicant template.");
+      }
+    },
+    onSuccess: () => {
+      setApplicantTemplateFile(null);
+      void queryClient.invalidateQueries({ queryKey: ["admin-applicant-template"] });
+      void queryClient.invalidateQueries({ queryKey: ["public-applicant-template"] });
+      toast({
+        title: "Template uploaded",
+        description: "Applicants can now download the latest UC Application Form from the public application page.",
+      });
+    },
+    onError: (mutationError) => {
+      toast({
+        title: "Unable to upload template",
         description: mutationError instanceof Error ? mutationError.message : "Please try again.",
         variant: "destructive",
       });
@@ -463,6 +504,50 @@ export function SettingsPage() {
               <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
               Single-campus deployment - updates here immediately feed the shared website branding and contact details after save.
             </div>
+            <Separator />
+            <div className="space-y-3">
+              <div>
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                  <FileText className="h-4 w-4 text-primary" /> UC Application Form Template
+                </p>
+                <p className="mt-1 text-[11px] text-muted-foreground">Upload the official UC Application Form here so applicants can download the latest template before submitting their files.</p>
+              </div>
+              <div className="rounded-xl border border-border bg-muted/20 p-3">
+                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-foreground">UC Application Form</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {applicantTemplateFile
+                        ? `Selected: ${applicantTemplateFile.name}`
+                        : applicantTemplateQuery.data?.template.fileName?.trim()
+                          ? `Current file: ${applicantTemplateQuery.data.template.fileName}`
+                          : "No template uploaded yet."}
+                    </p>
+                  </div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Input type="file" accept={APPLICANT_TEMPLATE_ACCEPT} className="max-w-xs" onChange={(event) => setApplicantTemplateFile(event.target.files?.[0] ?? null)} />
+                    <div className="flex gap-2">
+                      {applicantTemplateQuery.data?.template.storagePath ? (
+                        <Button type="button" variant="outline" size="sm" asChild>
+                          <a href="/api/public/applicant-template/download" target="_blank" rel="noreferrer">
+                            <Download className="mr-1 h-3.5 w-3.5" /> Download
+                          </a>
+                        </Button>
+                      ) : (
+                        <Button type="button" variant="outline" size="sm" disabled>
+                          <Download className="mr-1 h-3.5 w-3.5" /> Download
+                        </Button>
+                      )}
+                      <Button type="button" size="sm" disabled={!applicantTemplateFile || applicantTemplateUploadMutation.isPending} onClick={() => { if (applicantTemplateFile) { applicantTemplateUploadMutation.mutate(applicantTemplateFile); } }}>
+                        {applicantTemplateUploadMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                        {applicantTemplateUploadMutation.isPending ? "Uploading..." : "Upload"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
           </CardContent>
         </Card>
 
@@ -737,6 +822,27 @@ export function SettingsPage() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

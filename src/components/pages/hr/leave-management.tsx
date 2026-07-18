@@ -8,6 +8,7 @@ import { HexagonAvatar, HexagonBadge } from "@/components/shared/hexagon";
 import { formatAttachmentDisplayName, formatDate, formatDateShort, formatLeaveDayCount, leaveStatusColor } from "@/components/shared/helpers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FilterSelect } from "@/components/shared/filter-controls";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -257,9 +258,7 @@ export function LeaveManagementPage() {
   const approvedCount = leaveRequests.filter((request) => request.overallStatus === "Approved").length;
   const disapprovedCount = leaveRequests.filter((request) => request.overallStatus === "Disapproved").length;
 
-  if (leaveQuery.isLoading) {
-    return <div className="p-6 text-muted-foreground"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading leave requests...</div>;
-  }
+  const isLeaveLoading = leaveQuery.isLoading;
 
   if (leaveQuery.error) {
     return <div className="p-6 text-muted-foreground">{leaveQuery.error instanceof Error ? leaveQuery.error.message : "Unable to load leave requests."}</div>;
@@ -296,32 +295,38 @@ export function LeaveManagementPage() {
       <Card>
         <CardContent className="pt-0">
           <div className="grid gap-3 sm:grid-cols-3">
+            <FilterSelect
+              label="Status"
+              value={statusFilter}
+              onValueChange={(value) => setStatusFilter(value as StatusFilter)}
+              triggerClassName="h-11 rounded-md border-input bg-background text-left shadow-xs hover:bg-background"
+              labelClassName="text-sm font-medium text-foreground"
+              options={[
+                { value: "All", label: "All" },
+                { value: "Pending", label: "Pending" },
+                { value: "Approved", label: "Approved" },
+                { value: "Disapproved", label: "Disapproved" },
+              ]}
+            />
+            <FilterSelect
+              label="Leave Type"
+              value={typeFilter}
+              onValueChange={setTypeFilter}
+              triggerClassName="h-11 rounded-md border-input bg-background text-left shadow-xs hover:bg-background"
+              labelClassName="text-sm font-medium text-foreground"
+              options={[
+                { value: "All", label: "All Types" },
+                ...LEAVE_TYPES.map((type) => ({
+                  value: type,
+                  label: getAdminLeaveTypeLabel(type),
+                })),
+              ]}
+            />
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Status</Label>
-              <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="Approved">Approved</SelectItem>
-                  <SelectItem value="Disapproved">Disapproved</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Leave Type</Label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All Types</SelectItem>
-                  {LEAVE_TYPES.map((type) => <SelectItem key={type} value={type}>{getAdminLeaveTypeLabel(type)}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-end">
-              <Badge variant="outline" className="flex h-9 items-center border-primary/40 px-3 text-primary">
-                {filtered.length} of {leaveRequests.length} requests
-              </Badge>
+              <Label className="text-sm font-medium text-foreground">Records</Label>
+              <div className="flex h-[44px] w-full items-center justify-center rounded-xl border border-primary/40 px-4 text-sm font-semibold text-primary">
+                {isLeaveLoading ? 0 : filtered.length} of {leaveRequests.length} requests
+              </div>
             </div>
           </div>
         </CardContent>
@@ -346,7 +351,13 @@ export function LeaveManagementPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pendingRequests.map((request) => {
+                {isLeaveLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-12 text-center text-muted-foreground">
+                      <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading leave requests...
+                    </TableCell>
+                  </TableRow>
+                ) : pendingRequests.map((request) => {
                   const employee = emp(request.employeeId);
                   const approvalLabel = getApprovalLabel(request);
                   return (
@@ -394,7 +405,7 @@ export function LeaveManagementPage() {
                     </TableRow>
                   );
                 })}
-                {pendingRequests.length === 0 && (
+                {!isLeaveLoading && pendingRequests.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No pending leave requests match the filters.</TableCell>
                   </TableRow>
@@ -424,7 +435,13 @@ export function LeaveManagementPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {historyRequests.map((request) => {
+                {isLeaveLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-12 text-center text-muted-foreground">
+                      <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading leave history...
+                    </TableCell>
+                  </TableRow>
+                ) : historyRequests.map((request) => {
                   const employee = emp(request.employeeId);
                   const approvalLabel = getApprovalLabel(request);
                   return (
@@ -467,7 +484,7 @@ export function LeaveManagementPage() {
                     </TableRow>
                   );
                 })}
-                {historyRequests.length === 0 && (
+                {!isLeaveLoading && historyRequests.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">No leave history matches the filters.</TableCell>
                   </TableRow>
@@ -585,6 +602,8 @@ function StageStatusBadge({ status }: { status: LeaveStageStatus }) {
   if (status === "Disapproved") return <HexagonBadge color="#dc2626">Disapproved</HexagonBadge>;
   return <HexagonBadge color="#ca8a04">Pending</HexagonBadge>;
 }
+
+
 
 
 

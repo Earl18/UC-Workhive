@@ -39,11 +39,13 @@ export type View =
   | "public:landing"
   | "public:about"
   | "public:careers"
+  | "public:privacy"
   | "public:job-detail"
   | "public:login"
   | "employee:dashboard"
   | "employee:profile"
   | "employee:attendance"
+  | "employee:time-clock"
   | "employee:leave"
   | "employee:holidays"
   | "employee:documents"
@@ -277,14 +279,49 @@ export const useWorkHive = create<WorkHiveState>((set, get) => ({
     })),
 
   moveApplicantStage: (id, stage) =>
-    set((s) => ({
-      applicants: s.applicants.map((a) => (a.id === id ? { ...a, stage } : a)),
-    })),
+    set((s) => {
+      const movedBy = get().currentUser?.name ?? "System";
+      const movedAt = new Date().toISOString();
+
+      return {
+        applicants: s.applicants.map((a) => {
+          if (a.id !== id || a.stage === stage) {
+            return a;
+          }
+
+          const stageHistory = [
+            ...(a.stageHistory ?? []).filter((entry) => entry.stage !== stage),
+            { stage, movedBy, movedAt },
+          ];
+
+          return { ...a, stage, stageHistory };
+        }),
+      };
+    }),
 
   scheduleInterview: (id, schedule) =>
-    set((s) => ({
-      applicants: s.applicants.map((a) => (a.id === id ? { ...a, schedule, stage: "Interview" } : a)),
-    })),
+    set((s) => {
+      const movedBy = get().currentUser?.name ?? "System";
+      const movedAt = new Date().toISOString();
+
+      return {
+        applicants: s.applicants.map((a) => {
+          if (a.id !== id) {
+            return a;
+          }
+
+          const shouldRecordStage = a.stage !== "Interview";
+          const stageHistory = shouldRecordStage
+            ? [
+                ...(a.stageHistory ?? []).filter((entry) => entry.stage !== "Interview"),
+                { stage: "Interview", movedBy, movedAt },
+              ]
+            : a.stageHistory;
+
+          return { ...a, schedule, stage: "Interview", stageHistory };
+        }),
+      };
+    }),
 
   rescheduleInterview: (id, schedule) =>
     set((s) => ({
@@ -374,5 +411,9 @@ export function getLeaveCreditsFor(credits: LeaveCredits[], type: LeaveType, emp
   };
   return map[type];
 }
+
+
+
+
 
 

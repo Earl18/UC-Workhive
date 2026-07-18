@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { FilterSelect, SearchableFilterSelect } from "@/components/shared/filter-controls";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -763,12 +764,11 @@ export function AttendancePage() {
   const records = data?.records ?? [];
   const deletedRecords = data?.deletedRecords ?? [];
   const filteredCount = data?.pagination.totalRecords ?? 0;
+  const employeeOptions = data?.employees ?? [];
+  const remarksOptions = data?.remarksOptions ?? [];
+  const isAttendanceLoading = attendanceQuery.isLoading;
 
-  if (attendanceQuery.isLoading) {
-    return <div className="p-6 text-muted-foreground"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading attendance report...</div>;
-  }
-
-  if (attendanceQuery.error || !data) {
+  if (attendanceQuery.error) {
     return <div className="p-6 text-muted-foreground">{attendanceQuery.error instanceof Error ? attendanceQuery.error.message : "Unable to load attendance report."}</div>;
   }
 
@@ -821,10 +821,10 @@ export function AttendancePage() {
       ) : (
         <>
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Days Present" value={data.summary.daysPresent} sublabel={`${data.summary.employeesCount} employees`} color="text-green-600" />
-        <KpiCard label="Late Incidents" value={data.summary.lateIncidents} sublabel={`${data.summary.totalLateMinutes} min total`} color="text-amber-600" accent />
-        <KpiCard label="Undertime (min)" value={data.summary.totalUndertimeMinutes} sublabel="real DB totals" color="text-orange-600" />
-        <KpiCard label="Overtime (hrs)" value={data.summary.totalOvertimeHours.toFixed(1)} sublabel="approved + pending" color="text-primary" />
+        <KpiCard label="Days Present" value={data?.summary.daysPresent ?? 0} sublabel={`${data?.summary.employeesCount ?? 0} employees`} color="text-green-600" />
+        <KpiCard label="Late Incidents" value={data?.summary.lateIncidents ?? 0} sublabel={`${data?.summary.totalLateMinutes ?? 0} min total`} color="text-amber-600" accent />
+        <KpiCard label="Undertime (min)" value={data?.summary.totalUndertimeMinutes ?? 0} sublabel="real DB totals" color="text-orange-600" />
+        <KpiCard label="Overtime (hrs)" value={data ? data.summary.totalOvertimeHours.toFixed(1) : "0.0"} sublabel="approved + pending" color="text-primary" />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
@@ -835,7 +835,7 @@ export function AttendancePage() {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-              {data.schedule.map((schedule) => (
+              {(data?.schedule ?? []).map((schedule) => (
                 <div key={schedule.day} className={`rounded-lg border p-3 text-center ${schedule.day === "Sat" ? "border-gold/40 bg-gold/5" : "border-border bg-muted/30"}`}>
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{schedule.day}</p>
                   <p className="mt-1 text-sm font-bold text-primary">{schedule.in}</p>
@@ -849,14 +849,14 @@ export function AttendancePage() {
         <Card className="border-gold/30">
           <CardHeader>
             <CardTitle className="text-base">Period Summary</CardTitle>
-            <CardDescription>{data.monthLabel} cutoff</CardDescription>
+            <CardDescription>{data?.monthLabel ?? "Current"} cutoff</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2.5 text-sm">
-            <SummaryRow label="Days Worked" value={data.summary.daysWorked} color="text-primary" />
-            <SummaryRow label="Absences" value={data.summary.absences} color="text-red-600" />
-            <SummaryRow label="Holidays" value={data.summary.holidays} color="text-orange-600" />
-            <SummaryRow label="Pending Validation" value={data.summary.pendingValidationCount} color="text-amber-600" />
-            <SummaryRow label="Pending OT Review" value={data.summary.pendingOvertimeCount} color="text-primary" />
+            <SummaryRow label="Days Worked" value={data?.summary.daysWorked ?? 0} color="text-primary" />
+            <SummaryRow label="Absences" value={data?.summary.absences ?? 0} color="text-red-600" />
+            <SummaryRow label="Holidays" value={data?.summary.holidays ?? 0} color="text-orange-600" />
+            <SummaryRow label="Pending Validation" value={data?.summary.pendingValidationCount ?? 0} color="text-amber-600" />
+            <SummaryRow label="Pending OT Review" value={data?.summary.pendingOvertimeCount ?? 0} color="text-primary" />
 
 
           </CardContent>
@@ -885,27 +885,43 @@ export function AttendancePage() {
               </div>
             </div>
           </div>
-
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <div className="min-w-0 space-y-1.5">
-              <Label className="flex items-center gap-1.5 text-xs text-muted-foreground"><Filter className="h-3 w-3" /> View Employee</Label>
-              <Select value={employeeId} onValueChange={(value) => { setEmployeeId(value); setPage(1); }}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent position="popper" side="bottom" align="start" sideOffset={6} avoidCollisions={false} className="max-h-80">
-                  <SelectItem value="all">All Non-Teaching Personnel</SelectItem>
-                  {data.employees.map((employee) => <SelectItem key={employee.id} value={employee.id}>{employee.name} - {employee.position}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <SearchableFilterSelect
+                label="View Employee"
+                icon={<Filter className="h-3 w-3" />}
+                value={employeeId}
+                onValueChange={(value) => {
+                  setEmployeeId(value);
+                  setPage(1);
+                }}
+                options={[
+                  { value: "all", label: "All Non-Teaching Personnel" },
+                  ...employeeOptions.map((employee) => ({
+                    value: employee.id,
+                    label: `${employee.name} - ${employee.position}`,
+                  })),
+                ]}
+                searchPlaceholder="Search employee..."
+                emptyLabel="No employee found."
+              />
             </div>
             <div className="min-w-0 space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Remarks</Label>
-              <Select value={remarks} onValueChange={(value) => { setRemarks(value); setPage(1); }}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent position="popper" side="bottom" align="start" sideOffset={6} avoidCollisions={false} className="max-h-80">
-                  <SelectItem value="all">All remarks</SelectItem>
-                  {data.remarksOptions.map((option) => <SelectItem key={option} value={option}>{option}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <FilterSelect
+                label="Remarks"
+                value={remarks}
+                onValueChange={(value) => {
+                  setRemarks(value);
+                  setPage(1);
+                }}
+                options={[
+                  { value: "all", label: "All remarks" },
+                  ...remarksOptions.map((option) => ({
+                    value: option,
+                    label: option,
+                  })),
+                ]}
+              />
             </div>
             <div className="min-w-0">
               <AttendanceFilterDateField label="Date" value={date} onChange={(value) => { setDate(value); setPage(1); }} />
@@ -927,6 +943,11 @@ export function AttendancePage() {
         </CardHeader>
         <CardContent>
           <div className="max-h-[38rem] overflow-auto rounded-lg border border-border">
+            {isAttendanceLoading || !data ? (
+              <div className="flex items-center justify-center py-14 text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading attendance records...
+              </div>
+            ) : (
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
@@ -1013,12 +1034,13 @@ export function AttendancePage() {
                 ) : null}
               </TableBody>
             </Table>
+            )}
           </div>
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="text-sm text-muted-foreground">
-              Showing {records.length === 0 ? 0 : (page - 1) * (data?.pagination.pageSize ?? pageSize) + 1}
-              -{Math.min(page * (data?.pagination.pageSize ?? pageSize), data?.pagination.totalRecords ?? 0)} of {data?.pagination.totalRecords ?? 0} records
+              Showing {isAttendanceLoading ? 0 : (records.length === 0 ? 0 : (page - 1) * (data?.pagination.pageSize ?? pageSize) + 1)}
+              -{isAttendanceLoading ? 0 : Math.min(page * (data?.pagination.pageSize ?? pageSize), data?.pagination.totalRecords ?? 0)} of {data?.pagination.totalRecords ?? 0} records
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="flex items-center gap-2">
@@ -1035,9 +1057,9 @@ export function AttendancePage() {
                 </Select>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={(data?.pagination.page ?? 1) <= 1}>Previous</Button>
+                <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={isAttendanceLoading || (data?.pagination.page ?? 1) <= 1}>Previous</Button>
                 <div className="min-w-[110px] text-center text-sm text-muted-foreground">Page {data?.pagination.page ?? 1} of {data?.pagination.totalPages ?? 1}</div>
-                <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.min(data?.pagination.totalPages ?? current, current + 1))} disabled={(data?.pagination.page ?? 1) >= (data?.pagination.totalPages ?? 1)}>Next</Button>
+                <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.min(data?.pagination.totalPages ?? current, current + 1))} disabled={isAttendanceLoading || (data?.pagination.page ?? 1) >= (data?.pagination.totalPages ?? 1)}>Next</Button>
               </div>
             </div>
           </div>
@@ -1045,66 +1067,72 @@ export function AttendancePage() {
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Deleted Attendance Recovery</CardTitle>
-          <CardDescription>Deleted attendance stays here for 7 days before permanent cleanup. You can still restore it during that window and see which HR removed the record.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="max-h-[26rem] overflow-auto rounded-lg border border-border">
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-card">
-                <TableRow>
-                  <TableHead className="w-48">Employee</TableHead>
-                  <TableHead className="w-24">Date</TableHead>
-                  <TableHead className="w-16">Day</TableHead>
-                  <TableHead className="w-24 text-center">AM In</TableHead>
-                  <TableHead className="w-24 text-center">AM Out</TableHead>
-                  <TableHead className="w-24 text-center">PM In</TableHead>
-                  <TableHead className="w-24 text-center">PM Out</TableHead>
-                  <TableHead className="w-28 text-center">Work Hours</TableHead>
-                  <TableHead className="w-40">Deleted At</TableHead>
-                  <TableHead className="w-32">Deleted By</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {deletedRecords.map((record) => (
-                  <TableRow key={record.id} className="bg-red-500/5">
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <HexagonAvatar name={record.employeeName} size={26} />
-                        <div className="min-w-0 leading-tight">
-                          <p className="truncate text-xs font-semibold text-foreground">{record.employeeName}</p>
-                          <p className="truncate text-[10px] text-muted-foreground">{record.position}</p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs font-medium">{formatDateShort(record.date)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{record.day}</TableCell>
-                    <TableCell className="text-xs">{formatTime12Hour(record.morningIn)}</TableCell>
-                    <TableCell className="text-xs">{formatTime12Hour(record.morningOut)}</TableCell>
-                    <TableCell className="text-xs">{formatTime12Hour(record.afternoonIn)}</TableCell>
-                    <TableCell className="text-xs">{formatTime12Hour(record.afternoonOut)}</TableCell>
-                    <TableCell className="text-right text-xs font-medium text-primary">{record.workHoursHrs != null ? `${record.workHoursHrs.toFixed(1)}h` : "-"}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{record.deletedAt ? format(new Date(record.deletedAt), "MMM d, yyyy h:mm a") : "-"}</TableCell>
-                    <TableCell className="text-xs">{record.deletedByName ?? "-"}</TableCell>
-                    <TableCell className="text-right">
-                      <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => restoreMutation.mutate({ id: record.id })} disabled={restoreMutation.isPending}>
-                        <RotateCcw className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {deletedRecords.length === 0 ? (
+          <CardHeader>
+            <CardTitle className="text-base">Deleted Attendance Recovery</CardTitle>
+            <CardDescription>Deleted attendance stays here for 7 days before permanent cleanup. You can still restore it during that window and see which HR removed the record.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-[26rem] overflow-auto rounded-lg border border-border">
+              {isAttendanceLoading || !data ? (
+                <div className="flex items-center justify-center py-14 text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading deleted attendance records...
+                </div>
+              ) : (
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-card">
                   <TableRow>
-                    <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">No deleted attendance records are waiting for recovery.</TableCell>
+                    <TableHead className="w-48">Employee</TableHead>
+                    <TableHead className="w-24">Date</TableHead>
+                    <TableHead className="w-16">Day</TableHead>
+                    <TableHead className="w-24 text-center">AM In</TableHead>
+                    <TableHead className="w-24 text-center">AM Out</TableHead>
+                    <TableHead className="w-24 text-center">PM In</TableHead>
+                    <TableHead className="w-24 text-center">PM Out</TableHead>
+                    <TableHead className="w-28 text-center">Work Hours</TableHead>
+                    <TableHead className="w-40">Deleted At</TableHead>
+                    <TableHead className="w-32">Deleted By</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
                   </TableRow>
-                ) : null}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {deletedRecords.map((record) => (
+                    <TableRow key={record.id} className="bg-red-500/5">
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <HexagonAvatar name={record.employeeName} size={26} />
+                          <div className="min-w-0 leading-tight">
+                            <p className="truncate text-xs font-semibold text-foreground">{record.employeeName}</p>
+                            <p className="truncate text-[10px] text-muted-foreground">{record.position}</p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-xs font-medium">{formatDateShort(record.date)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{record.day}</TableCell>
+                      <TableCell className="text-xs">{formatTime12Hour(record.morningIn)}</TableCell>
+                      <TableCell className="text-xs">{formatTime12Hour(record.morningOut)}</TableCell>
+                      <TableCell className="text-xs">{formatTime12Hour(record.afternoonIn)}</TableCell>
+                      <TableCell className="text-xs">{formatTime12Hour(record.afternoonOut)}</TableCell>
+                      <TableCell className="text-right text-xs font-medium text-primary">{record.workHoursHrs != null ? `${record.workHoursHrs.toFixed(1)}h` : "-"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">{record.deletedAt ? format(new Date(record.deletedAt), "MMM d, yyyy h:mm a") : "-"}</TableCell>
+                      <TableCell className="text-xs">{record.deletedByName ?? "-"}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="outline" className="h-7 px-2" onClick={() => restoreMutation.mutate({ id: record.id })} disabled={restoreMutation.isPending}>
+                          <RotateCcw className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {deletedRecords.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">No deleted attendance records are waiting for recovery.</TableCell>
+                    </TableRow>
+                  ) : null}
+                </TableBody>
+              </Table>
+              )}
+            </div>
+          </CardContent>
+        </Card>
         </>
       )}
       <Dialog open={!!editingRecord} onOpenChange={(open) => {
@@ -1750,6 +1778,9 @@ function AttendanceBadge({ record }: { record: AttendancePageResponse["records"]
   }
   return <HexagonBadge color="#16a34a">{remark || "Present"}</HexagonBadge>;
 }
+
+
+
 
 
 

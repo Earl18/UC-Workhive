@@ -1,103 +1,30 @@
-"use client";
+﻿"use client";
 
 import { useMemo } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  Hand,
-  QrCode,
-  CalendarDays,
   Briefcase,
-  MapPin,
-  Clock,
-  Info,
-  EyeOff,
-  Users,
-  Layers,
   CheckCircle2,
-  XCircle,
-  ShieldAlert,
+  EyeOff,
+  Layers,
   Loader2,
+  MonitorSmartphone,
+  ShieldAlert,
+  Users,
+  XCircle,
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useWorkHive } from "@/lib/store";
 import { useAdminFeatureToggles, useAdminUsers } from "@/hooks/use-feature-toggles";
+import { FEATURE_TOGGLE_GROUPS, FEATURE_TOGGLE_META } from "@/lib/feature-access";
 import type { FeatureToggles, Role, SystemUser } from "@/lib/types";
-
-type ToggleMeta = {
-  key: keyof FeatureToggles;
-  label: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  group: "Attendance" | "People" | "Recruitment";
-  affects: string;
-  affectedRoles: Role[];
-};
 
 type FeatureTogglesResponse = {
   featureToggles: FeatureToggles;
 };
-
-const TOGGLES: ToggleMeta[] = [
-  {
-    key: "manualAttendance",
-    label: "Manual Attendance",
-    icon: Hand,
-    group: "Attendance",
-    affects: "Employee portal � Attendance page",
-    affectedRoles: ["employee"],
-    description: "Employees can manually enter their time-in / time-out. Fallback when QR or GPS is unavailable.",
-  },
-  {
-    key: "qrAttendance",
-    label: "QR Attendance",
-    icon: QrCode,
-    group: "Attendance",
-    affects: "Employee portal � Attendance page",
-    affectedRoles: ["employee"],
-    description: "Employees scan a daily QR code displayed at the campus entrance to register attendance.",
-  },
-  {
-    key: "gpsAttendance",
-    label: "GPS Attendance",
-    icon: MapPin,
-    group: "Attendance",
-    affects: "Employee portal � Admin � GPS Zones",
-    affectedRoles: ["employee", "admin"],
-    description: "Location-based attendance via geofence zones. Configure zones on the GPS Zones page.",
-  },
-  {
-    key: "leaveModule",
-    label: "Leave Module",
-    icon: CalendarDays,
-    group: "People",
-    affects: "Employee portal � HR portal",
-    affectedRoles: ["employee", "hr"],
-    description: "Single-stage HR leave approval. Hides the Leave menu when off.",
-  },
-  {
-    key: "overtimeModule",
-    label: "Overtime Module",
-    icon: Clock,
-    group: "People",
-    affects: "Employee portal � HR portal",
-    affectedRoles: ["employee", "hr"],
-    description: "Employees log overtime hours; HR approves or rejects. Reflects in payroll and attendance reports.",
-  },
-  {
-    key: "recruitmentModule",
-    label: "Recruitment Module",
-    icon: Briefcase,
-    group: "Recruitment",
-    affects: "HR portal � Public Careers",
-    affectedRoles: ["hr"],
-    description: "Job postings, applicant Kanban, interview scheduling, and scoring. Hides Recruitment from the HR portal.",
-  },
-];
-
-const GROUPS = ["Attendance", "People", "Recruitment"] as const;
 
 function getAffectedUserCount(users: SystemUser[], roles: Role[]) {
   return users.filter((user) => user.active && roles.includes(user.role)).length;
@@ -114,6 +41,10 @@ export function FeatureTogglesPage() {
   const users = usersData?.users ?? [];
   const activeEmployees = useMemo(
     () => users.filter((user) => user.active && user.role === "employee").length,
+    [users],
+  );
+  const activeHr = useMemo(
+    () => users.filter((user) => user.active && user.role === "hr").length,
     [users],
   );
 
@@ -138,14 +69,14 @@ export function FeatureTogglesPage() {
       queryClient.setQueryData(["feature-toggles"], payload);
 
       const changedKey = Object.keys(variables)[0] as keyof FeatureToggles | undefined;
-      const meta = changedKey ? TOGGLES.find((toggle) => toggle.key === changedKey) : null;
+      const meta = changedKey ? FEATURE_TOGGLE_META.find((toggle) => toggle.key === changedKey) : null;
       const enabled = changedKey ? payload.featureToggles[changedKey] : true;
 
       toast({
-        title: `${meta?.label ?? "Module"} ${enabled ? "enabled" : "disabled"}`,
+        title: `${meta?.label ?? "Page"} ${enabled ? "enabled" : "disabled"}`,
         description: enabled
-          ? "Saved to the database and now visible across devices."
-          : "Saved to the database and now hidden across devices.",
+          ? "Saved to the database and now visible on the portal."
+          : "Saved to the database and now hidden from the portal.",
       });
     },
     onError: (mutationError) => {
@@ -173,7 +104,7 @@ export function FeatureTogglesPage() {
   };
 
   const enabledCount = Object.values(featureToggles).filter(Boolean).length;
-  const totalCount = TOGGLES.length;
+  const totalCount = FEATURE_TOGGLE_META.length;
   const enabledPct = Math.round((enabledCount / totalCount) * 100);
 
   if (isLoading && !data) {
@@ -194,12 +125,12 @@ export function FeatureTogglesPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Feature Toggles</h1>
           <p className="text-sm text-muted-foreground">
-            Enable or disable WorkHive modules for the Employee portal.
+            Enable or disable the actual Employee and HR portal pages. Disabled pages are hidden from the sidebar and blocked from staying open.
           </p>
         </div>
         <Badge variant="outline" className="self-start border-primary/30 bg-primary/10 text-primary">
           {saveMutation.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Layers className="mr-1.5 h-3.5 w-3.5" />}
-          {enabledCount} / {totalCount} modules active
+          {enabledCount} / {totalCount} pages active
         </Badge>
       </div>
 
@@ -225,11 +156,11 @@ export function FeatureTogglesPage() {
               </div>
             </div>
             <div>
-              <p className="text-xs font-medium text-muted-foreground">Active modules</p>
+              <p className="text-xs font-medium text-muted-foreground">Active portal pages</p>
               <p className="text-lg font-bold text-foreground">
                 {enabledCount} <span className="text-muted-foreground">/ {totalCount}</span>
               </p>
-              <p className="text-[11px] text-muted-foreground">visible to employees</p>
+              <p className="text-[11px] text-muted-foreground">saved in the database</p>
             </div>
           </CardContent>
         </Card>
@@ -241,7 +172,7 @@ export function FeatureTogglesPage() {
               <CheckCircle2 className="h-4 w-4 text-emerald-500" />
             </div>
             <p className="mt-1.5 text-2xl font-bold text-emerald-600 dark:text-emerald-400">{enabledCount}</p>
-            <p className="text-[11px] text-muted-foreground">modules running</p>
+            <p className="text-[11px] text-muted-foreground">pages visible</p>
           </CardContent>
         </Card>
 
@@ -252,7 +183,7 @@ export function FeatureTogglesPage() {
               <XCircle className="h-4 w-4 text-muted-foreground" />
             </div>
             <p className="mt-1.5 text-2xl font-bold text-muted-foreground">{totalCount - enabledCount}</p>
-            <p className="text-[11px] text-muted-foreground">modules hidden</p>
+            <p className="text-[11px] text-muted-foreground">pages hidden</p>
           </CardContent>
         </Card>
 
@@ -262,8 +193,8 @@ export function FeatureTogglesPage() {
               <p className="text-xs font-medium text-muted-foreground">Affected Users</p>
               <Users className="h-4 w-4 text-primary" />
             </div>
-            <p className="mt-1.5 text-2xl font-bold text-foreground">{activeEmployees}</p>
-            <p className="text-[11px] text-muted-foreground">active employees from the database</p>
+            <p className="mt-1.5 text-2xl font-bold text-foreground">{activeEmployees + activeHr}</p>
+            <p className="text-[11px] text-muted-foreground">{activeEmployees} employees and {activeHr} HR users</p>
           </CardContent>
         </Card>
       </div>
@@ -271,24 +202,22 @@ export function FeatureTogglesPage() {
       <div className="flex items-start gap-3 rounded-xl border border-gold/40 bg-gold/10 p-4">
         <EyeOff className="mt-0.5 h-5 w-5 shrink-0 text-gold" />
         <div className="text-sm">
-          <p className="font-semibold text-foreground">Disabling a module hides it from the Employee portal.</p>
+          <p className="font-semibold text-foreground">Disabling a page hides it from the Employee or HR portal.</p>
           <p className="text-muted-foreground">
-            Existing data is preserved and remains accessible to HR and Admin. The saved toggle state is now loaded from the database for every device.
+            Existing records stay in the database. Users already on a disabled page are redirected to the next available page in their own portal.
           </p>
         </div>
       </div>
 
-      {GROUPS.map((group) => {
-        const groupToggles = TOGGLES.filter((toggle) => toggle.group === group);
+      {FEATURE_TOGGLE_GROUPS.map((group) => {
+        const groupToggles = FEATURE_TOGGLE_META.filter((toggle) => toggle.group === group);
         const groupEnabled = groupToggles.filter((toggle) => featureToggles[toggle.key]).length;
 
         return (
           <div key={group} className="space-y-3">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                {group === "Attendance" && <Clock className="h-4 w-4" />}
-                {group === "People" && <Users className="h-4 w-4" />}
-                {group === "Recruitment" && <Briefcase className="h-4 w-4" />}
+                {group === "Employee Portal" ? <MonitorSmartphone className="h-4 w-4" /> : <Briefcase className="h-4 w-4" />}
               </div>
               <div className="flex-1">
                 <h2 className="text-sm font-bold text-foreground">{group}</h2>
@@ -318,47 +247,37 @@ export function FeatureTogglesPage() {
                   >
                     <span
                       className="absolute left-0 top-0 h-full w-1"
-                      style={{ backgroundColor: on ? "var(--primary)" : "var(--muted-foreground)" }}
-                      aria-hidden
+                      style={{ backgroundColor: on ? "var(--primary)" : "var(--border)" }}
                     />
-                    <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 pl-5">
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={`flex h-10 w-10 items-center justify-center rounded-lg transition-colors ${on ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}
-                        >
-                          <Icon className="h-4 w-4" />
+                    <CardContent className="space-y-4 p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex min-w-0 gap-3">
+                          <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${on ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                            <Icon className="h-5 w-5" />
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="text-lg font-semibold text-foreground">{toggle.label}</h3>
+                            <p className="text-xs text-muted-foreground">{toggle.affects}</p>
+                          </div>
                         </div>
-                        <div>
-                          <CardTitle className="text-base">{toggle.label}</CardTitle>
-                          <CardDescription className="mt-0.5 text-[11px]">{toggle.affects}</CardDescription>
-                        </div>
+                        <Switch
+                          checked={on}
+                          disabled={isSaving}
+                          onCheckedChange={(checked) => handleToggle(toggle.key, checked)}
+                          aria-label={`Toggle ${toggle.label}`}
+                        />
                       </div>
-                      <Switch checked={on} onCheckedChange={(value) => handleToggle(toggle.key, value)} disabled={isSaving} />
-                    </CardHeader>
-                    <CardContent className="pl-5">
-                      <p className="text-xs leading-relaxed text-muted-foreground">{toggle.description}</p>
-                      <div className="mt-3 flex items-center justify-between gap-3">
+
+                      <p className="text-sm leading-6 text-muted-foreground">{toggle.description}</p>
+
+                      <div className="flex items-center justify-between gap-3 pt-1">
                         <Badge
+                          className={on ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "border-border bg-muted text-muted-foreground"}
                           variant="outline"
-                          className={
-                            on
-                              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                              : "border-muted-foreground/30 bg-muted text-muted-foreground"
-                          }
                         >
-                          <span
-                            className="mr-1 h-1.5 w-1.5 rounded-full"
-                            style={{ backgroundColor: on ? "#10b981" : "var(--muted-foreground)" }}
-                          />
-                          {on ? "Visible to employees" : "Hidden from employees"}
+                          {on ? "Visible on portal" : "Hidden from portal"}
                         </Badge>
-                        {toggle.key === "gpsAttendance" && on ? (
-                          <span className="flex items-center gap-1 text-[11px] font-medium text-primary">
-                            <Info className="h-3 w-3" /> Configure zones
-                          </span>
-                        ) : (
-                          <span className="text-[11px] text-muted-foreground">{affectedUsers} affected users</span>
-                        )}
+                        <span className="text-xs text-muted-foreground">{affectedUsers} affected users</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -369,18 +288,12 @@ export function FeatureTogglesPage() {
         );
       })}
 
-      <Card className="border-gold/30 bg-gold/5">
-        <CardContent className="flex items-start gap-3 p-4">
-          <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-gold" />
-          <div className="text-sm">
-            <p className="font-semibold text-foreground">Changing module visibility takes effect immediately.</p>
-            <p className="text-muted-foreground">
-              Employees refreshing their portal will see the updated menu, and the same saved toggle values will load when you open the system on another device.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="flex items-start gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-4">
+        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+        <div className="text-sm text-muted-foreground">
+          Public pages and Admin-only pages are not controlled here. This screen only manages the real Employee and HR portal pages.
+        </div>
+      </div>
     </div>
   );
 }
-

@@ -1125,24 +1125,44 @@ function FilterSelect({
   onValueChange: (value: string) => void;
   options: Array<{ value: string; label: string }>;
 }) {
+  const [open, setOpen] = useState(false);
+  const selectedLabel = options.find((option) => option.value === value)?.label ?? options[0]?.label ?? "Select";
+
   return (
     <div className="min-w-0 space-y-1.5">
       <Label className="text-xs text-muted-foreground">{label}</Label>
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger className="w-full">
-          <span className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">{icon}</span>
-            <SelectValue />
-          </span>
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((option) => (
-            <SelectItem key={option.value} value={option.value}>
-              {option.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button variant="outline" role="combobox" aria-expanded={open} className="h-9 w-full justify-between rounded-md border bg-transparent px-3 text-sm font-normal shadow-xs hover:bg-transparent">
+            <span className="flex min-w-0 items-center gap-2 text-sm">
+              <span className="shrink-0 text-muted-foreground">{icon}</span>
+              <span className="truncate">{selectedLabel}</span>
+            </span>
+            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+          <Command>
+            <CommandList>
+              <CommandGroup>
+                {options.map((option) => (
+                  <CommandItem
+                    key={option.value}
+                    value={option.label}
+                    onSelect={() => {
+                      onValueChange(option.value);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check className={cn("h-4 w-4", value === option.value ? "opacity-100" : "opacity-0")} />
+                    {option.label}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }

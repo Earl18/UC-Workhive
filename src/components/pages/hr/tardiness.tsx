@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { HexagonAvatar, HexagonBadge } from "@/components/shared/hexagon";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FilterSelect, SearchableFilterSelect } from "@/components/shared/filter-controls";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -172,15 +173,10 @@ export function TardinessPage() {
     setSortDir("desc");
   }
 
-  if (tardinessQuery.isLoading && !tardinessQuery.data) {
-    return (
-      <div className="flex min-h-[20rem] items-center justify-center p-6 text-sm text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading tardiness monitoring...
-      </div>
-    );
-  }
+  const data = tardinessQuery.data;
+  const isTardinessLoading = tardinessQuery.isLoading;
 
-  if (tardinessQuery.error || !tardinessQuery.data) {
+  if (tardinessQuery.error) {
     return (
       <div className="p-6 text-sm text-muted-foreground">
         {tardinessQuery.error instanceof Error ? tardinessQuery.error.message : "Unable to load tardiness monitoring."}
@@ -188,17 +184,15 @@ export function TardinessPage() {
     );
   }
 
-  const data = tardinessQuery.data;
-
   return (
     <div className="space-y-6 p-4 md:p-6">
       <div className="flex flex-col gap-3">
         <div>
           <h1 className="text-2xl font-bold text-primary">Tardiness Monitoring</h1>
           <p className="text-sm text-muted-foreground">
-            {data.rangeLabel} - UC South Campus - {data.staffCategory} personnel
+            {data?.rangeLabel ?? "Selected period"} - UC South Campus - {data?.staffCategory ?? staffCategory} personnel
           </p>
-          {tardinessQuery.isFetching ? (
+          {tardinessQuery.isFetching && !isTardinessLoading ? (
             <p className="mt-1 text-xs text-muted-foreground">Refreshing tardiness records...</p>
           ) : null}
         </div>
@@ -225,53 +219,53 @@ export function TardinessPage() {
         <CardContent className="p-4 md:p-5">
           <div className="grid gap-3 xl:grid-cols-5">
             <AttendanceSummaryMonthField label="Month" value={month} onChange={setMonth} />
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-foreground">Counter</Label>
-              <Select value={period} onValueChange={(value) => setPeriod(value as SummaryPeriod)}>
-                <SelectTrigger className="h-[44px] w-full data-[size=default]:h-[44px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PERIOD_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-foreground">Department</Label>
-              <Select value={department} onValueChange={setDepartment}>
-                <SelectTrigger className="h-[44px] w-full data-[size=default]:h-[44px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Departments</SelectItem>
-                  {data.departments.map((item) => (
-                    <SelectItem key={item} value={item}>{item}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-foreground">Employment Status</Label>
-              <Select value={employmentStatus} onValueChange={setEmploymentStatus}>
-                <SelectTrigger className="h-[44px] w-full data-[size=default]:h-[44px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  {data.employmentStatuses.map((item) => (
-                    <SelectItem key={item} value={item}>{item}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <FilterSelect
+              label="Counter"
+              value={period}
+              onValueChange={(value) => setPeriod(value as SummaryPeriod)}
+              options={PERIOD_OPTIONS.map((option) => ({
+                value: option.value,
+                label: option.label,
+              }))}
+              triggerClassName="h-11 rounded-md border-input bg-background text-left shadow-xs hover:bg-background"
+              labelClassName="text-sm font-medium text-foreground"
+            />
+            <SearchableFilterSelect
+              label="Department"
+              value={department}
+              onValueChange={setDepartment}
+              options={[
+                { value: "all", label: "All Departments" },
+                ...(data?.departments ?? []).map((item) => ({
+                  value: item,
+                  label: item,
+                })),
+              ]}
+              searchPlaceholder="Search department..."
+              emptyLabel="No department found."
+              triggerClassName="h-11 rounded-md border-input bg-background text-left shadow-xs hover:bg-background"
+              labelClassName="text-sm font-medium text-foreground"
+            />
+            <SearchableFilterSelect
+              label="Employment Status"
+              value={employmentStatus}
+              onValueChange={setEmploymentStatus}
+              options={[
+                { value: "all", label: "All Statuses" },
+                ...(data?.employmentStatuses ?? []).map((item) => ({
+                  value: item,
+                  label: item,
+                })),
+              ]}
+              searchPlaceholder="Search employment status..."
+              emptyLabel="No status found."
+              triggerClassName="h-11 rounded-md border-input bg-background text-left shadow-xs hover:bg-background"
+              labelClassName="text-sm font-medium text-foreground"
+            />
             <div className="space-y-1.5">
               <Label className="text-sm font-medium text-foreground">Records</Label>
               <div className="flex h-[44px] w-full items-center justify-center rounded-xl border border-primary/40 px-4 text-sm font-semibold text-primary">
-                {data.summary.recordsCount} of {data.summary.scopedTotalRecords} employees
+                {isTardinessLoading ? 0 : (data?.summary.recordsCount ?? 0)} of {data?.summary.scopedTotalRecords ?? 0} employees
               </div>
             </div>
           </div>
@@ -279,16 +273,16 @@ export function TardinessPage() {
       </Card>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        <SummaryMetric label="Habitual Offenders" value={displayCount(data.summary.habitualOffenders)} color="text-red-600" icon="alert" />
-        <SummaryMetric label="Total Late Minutes" value={displayCount(data.summary.totalLateMinutes)} color="text-amber-600" icon="trend" />
-        <SummaryMetric label="Employees with Tardiness" value={displayCount(data.summary.employeesWithTardiness)} color="text-primary" icon="trend" />
+        <SummaryMetric label="Habitual Offenders" value={displayCount(data?.summary.habitualOffenders ?? 0)} color="text-red-600" icon="alert" />
+        <SummaryMetric label="Total Late Minutes" value={displayCount(data?.summary.totalLateMinutes ?? 0)} color="text-amber-600" icon="trend" />
+        <SummaryMetric label="Employees with Tardiness" value={displayCount(data?.summary.employeesWithTardiness ?? 0)} color="text-primary" icon="trend" />
       </div>
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">{data.staffCategory} Tardiness Records</CardTitle>
+          <CardTitle className="text-base">{data?.staffCategory ?? staffCategory} Tardiness Records</CardTitle>
           <CardDescription>
-            {data.periodLabel} validated tardiness records between {data.dateFrom} and {data.dateTo}. Habitual threshold uses the Admin Setting value of {data.threshold} late incidents.
+            {data?.periodLabel ?? "Selected period"} validated tardiness records between {data?.dateFrom ?? "-"} and {data?.dateTo ?? "-"}. Habitual threshold uses the Admin Setting value of {data?.threshold ?? 0} late incidents.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
@@ -305,7 +299,13 @@ export function TardinessPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.rows.map((row) => (
+                {isTardinessLoading || !data ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
+                      <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading tardiness records...
+                    </TableCell>
+                  </TableRow>
+                ) : data.rows.map((row) => (
                   <CollapsibleRow
                     key={row.employeeId}
                     row={row}
@@ -313,7 +313,7 @@ export function TardinessPage() {
                     onToggle={() => setExpandedId(expandedId === row.employeeId ? null : row.employeeId)}
                   />
                 ))}
-                {data.rows.length === 0 && (
+                {!isTardinessLoading && data.rows.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                       No tardiness records for this filter.
@@ -357,9 +357,9 @@ function CollapsibleRow({
             </div>
           </div>
         </TableCell>
-        <TableCell className="text-right text-sm font-semibold">{row.timesLate}</TableCell>
-        <TableCell className="text-right text-sm font-bold text-amber-600">{row.totalLateMinutes}</TableCell>
-        <TableCell className="text-right text-sm text-muted-foreground">{row.avgLateMinutes}</TableCell>
+        <TableCell className="text-center text-sm font-semibold">{row.timesLate}</TableCell>
+        <TableCell className="text-center text-sm font-bold text-amber-600">{row.totalLateMinutes}</TableCell>
+        <TableCell className="text-center text-sm text-muted-foreground">{row.avgLateMinutes}</TableCell>
         <TableCell className="text-center">
           {row.tardinessStatus === "Habitual" ? (
             <HexagonBadge color="#dc2626">Habitual</HexagonBadge>
@@ -422,8 +422,8 @@ function SortableMetricHead({
   onClick: () => void;
 }) {
   return (
-    <TableHead className="text-right">
-      <button type="button" onClick={onClick} className="inline-flex w-full items-center justify-end gap-1 text-right">
+    <TableHead className="text-center">
+      <button type="button" onClick={onClick} className="inline-flex w-full items-center justify-center gap-1 text-center">
         <span>{label}</span>
         {active ? (
           direction === "desc" ? <ArrowDown className="h-3.5 w-3.5 text-primary" /> : <ArrowUp className="h-3.5 w-3.5 text-primary" />
@@ -593,3 +593,7 @@ function SummaryMetric({
     </Card>
   );
 }
+
+
+
+

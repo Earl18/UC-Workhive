@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { startTransition, useState } from "react";
 import { useTheme } from "next-themes";
@@ -20,11 +20,12 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { isViewEnabled } from "@/lib/feature-access";
 import {
   Bell, Sun, Moon, LogOut, User as UserIcon, Menu, X, Settings, CheckCheck,
   LayoutDashboard, User, CalendarClock, CalendarDays, Briefcase,
   FileText, Users, ClipboardList, BarChart3, Video, GraduationCap, ToggleLeft,
-  MapPin, Mail, ScrollText, Plane, MoonStar,
+  MapPin, Mail, ScrollText, Plane, MoonStar, QrCode, Clock3,
 } from "lucide-react";
 
 const DESKTOP_SIDEBAR_WIDTH = "lg:ml-[280px]";
@@ -33,14 +34,17 @@ const EXPANDED_SIDEBAR_WIDTH = "w-[256px] sm:w-[280px]";
 const COLLAPSED_SIDEBAR_WIDTH = "w-[72px]";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { currentUser, view, setView, logout, sidebarCollapsed, toggleSidebar, notifications, markAllNotificationsRead } = useWorkHive();
+  const { currentUser, view, setView, logout, sidebarCollapsed, toggleSidebar, notifications, markAllNotificationsRead, featureToggles } = useWorkHive();
   const { theme, setTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   if (!currentUser) return <>{children}</>;
 
   const role = currentUser.role;
-  const nav = NAV_GROUPS[role];
+  const nav = (NAV_GROUPS[role] ?? []).map((group) => ({
+    ...group,
+    items: group.items.filter((item) => isViewEnabled(item.view, featureToggles)),
+  })).filter((group) => group.items.length > 0);
 
   const unreadCount = notifications.filter(
     (n) => !n.read && (n.role === role || (n.employeeId === currentUser.employeeId))
@@ -88,7 +92,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <WorkHiveLogo size={44} showText={false} />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-base font-bold text-foreground sm:text-lg">{pageTitle}</h1>
+            <h1 className="truncate text-lg font-bold text-foreground sm:text-xl">{pageTitle}</h1>
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
@@ -154,7 +158,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <button className="flex min-w-0 items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-accent" aria-label="Profile menu">
                   <HexagonAvatar name={currentUser.name} size={32} />
                   <div className="hidden min-w-0 text-left leading-tight sm:block">
-                    <div className="max-w-[140px] truncate text-sm font-semibold text-foreground">{currentUser.name}</div>
+                    <div className="max-w-[140px] truncate text-[15px] font-semibold text-foreground">{currentUser.name}</div>
                     <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{role}</div>
                   </div>
                 </button>
@@ -200,6 +204,7 @@ function getPageTitle(view: View): string {
     "employee:dashboard": "Dashboard",
     "employee:profile": "My Profile",
     "employee:attendance": "Attendance History",
+    "employee:time-clock": "Clock In/Clock Out",
     "employee:leave": "File a Leave",
     "employee:holidays": "Holiday Calendar",
     "employee:documents": "Documents & Certificates",
@@ -215,9 +220,9 @@ function getPageTitle(view: View): string {
     "hr:leave-management": "Leave Management",
     "hr:leave-summary": "Leave Summary Remaining",
     "hr:job-postings": "Job Postings",
-    "hr:applications": "Applications",
+    "hr:applications": "Job Applications",
     "hr:interview-scheduling": "Interview Scheduling",
-    "hr:interviews": "Interviews",
+    "hr:interviews": "Interview Result",
     "hr:video-conferencing": "Video Conferencing Room",
     "hr:holidays": "Holiday Calendar",
     "hr:reports": "Reports",
@@ -241,6 +246,7 @@ const NAV_GROUPS: Record<string, NavGroup[]> = {
       items: [
         { view: "employee:dashboard", label: "Dashboard", icon: LayoutDashboard },
         { view: "employee:profile", label: "My Profile", icon: User },
+        { view: "employee:time-clock", label: "Clock In/Clock Out", icon: Clock3 },
         { view: "employee:attendance", label: "Attendance History", icon: CalendarClock },
         { view: "employee:leave", label: "File a Leave", icon: Plane },
       ],
@@ -285,9 +291,9 @@ const NAV_GROUPS: Record<string, NavGroup[]> = {
       label: "Recruitment",
       items: [
         { view: "hr:job-postings", label: "Job Postings", icon: Briefcase },
-        { view: "hr:applications", label: "Applications", icon: Users },
+        { view: "hr:applications", label: "Job Applications", icon: Users },
         { view: "hr:interview-scheduling", label: "Interview Scheduling", icon: CalendarClock },
-        { view: "hr:interviews", label: "Interviews", icon: GraduationCap },
+        { view: "hr:interviews", label: "Interview Result", icon: GraduationCap },
         { view: "hr:video-conferencing", label: "Video Conferencing", icon: Video },
       ],
     },
@@ -423,4 +429,7 @@ function Sidebar({
     </>
   );
 }
+
+
+
 

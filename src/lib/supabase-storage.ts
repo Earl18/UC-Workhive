@@ -1,5 +1,6 @@
-﻿import { randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import {
+  APPLICANT_TEMPLATE_BUCKET,
   EMPLOYEE_DOCUMENT_ALLOWED_MIME_TYPES,
   EMPLOYEE_DOCUMENT_BUCKET,
   LEAVE_ATTACHMENT_BUCKET,
@@ -7,6 +8,7 @@ import {
 
 const EMPLOYEE_DOCUMENTS_FOLDER_NAME = "employee-documents";
 const LEAVE_ATTACHMENTS_FOLDER_NAME = "leave-attachments";
+const APPLICANT_TEMPLATES_FOLDER_NAME = "applicant-templates";
 
 function getSupabaseStorageConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -111,6 +113,18 @@ export async function uploadLeaveAttachmentToStorage(input: {
     employeeName: input.employeeName,
     file: input.file,
     subfolderName: LEAVE_ATTACHMENTS_FOLDER_NAME,
+  });
+}
+
+export async function uploadApplicantTemplateToStorage(input: {
+  templateLabel: string;
+  file: File;
+}) {
+  return uploadFileToSupabaseBucket({
+    bucket: APPLICANT_TEMPLATE_BUCKET,
+    employeeName: input.templateLabel,
+    file: input.file,
+    subfolderName: APPLICANT_TEMPLATES_FOLDER_NAME,
   });
 }
 

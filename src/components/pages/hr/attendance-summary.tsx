@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FilterSelect } from "@/components/shared/filter-controls";
 import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -208,15 +209,10 @@ export function AttendanceSummaryPage() {
     }
   }
 
-  if (summaryQuery.isLoading && !summaryQuery.data) {
-    return (
-      <div className="flex min-h-[20rem] items-center justify-center p-6 text-sm text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading attendance summary...
-      </div>
-    );
-  }
+  const data = summaryQuery.data;
+  const isSummaryLoading = summaryQuery.isLoading;
 
-  if (summaryQuery.error || !summaryQuery.data) {
+  if (summaryQuery.error) {
     return (
       <div className="p-6 text-sm text-muted-foreground">
         {summaryQuery.error instanceof Error ? summaryQuery.error.message : "Unable to load attendance summary."}
@@ -224,17 +220,15 @@ export function AttendanceSummaryPage() {
     );
   }
 
-  const data = summaryQuery.data;
-
   return (
     <div className="space-y-6 p-4 md:p-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-primary">Attendance Summary</h1>
           <p className="text-sm text-muted-foreground">
-            {data.rangeLabel} - UC South Campus - {data.staffCategory} personnel
+            {data?.rangeLabel ?? "Selected period"} - UC South Campus - {data?.staffCategory ?? staffCategory} personnel
           </p>
-          {summaryQuery.isFetching ? (
+          {summaryQuery.isFetching && !isSummaryLoading ? (
             <p className="mt-1 text-xs text-muted-foreground">Refreshing attendance summary...</p>
           ) : null}
         </div>
@@ -275,44 +269,40 @@ export function AttendanceSummaryPage() {
           <div className="grid gap-3 lg:grid-cols-3">
             <AttendanceSummaryMonthField label="Month" value={month} onChange={setMonth} />
 
-            <div className="space-y-1.5">
-              <Label className="text-sm font-medium text-foreground">Counter</Label>
-              <Select value={period} onValueChange={(value) => setPeriod(value as SummaryPeriod)}>
-                <SelectTrigger className="h-[44px] w-full data-[size=default]:h-[44px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PERIOD_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <FilterSelect
+              label="Counter"
+              value={period}
+              onValueChange={(value) => setPeriod(value as SummaryPeriod)}
+              options={PERIOD_OPTIONS.map((option) => ({
+                value: option.value,
+                label: option.label,
+              }))}
+              triggerClassName="h-11 rounded-md border-input bg-background text-left shadow-xs hover:bg-background"
+              labelClassName="text-sm font-medium text-foreground"
+            />
 
             <div className="space-y-1.5">
               <Label className="text-sm font-medium text-foreground">Records</Label>
               <div className="flex h-[44px] w-full items-center justify-center rounded-xl border border-primary/40 px-4 text-sm font-semibold text-primary">
-                {data.summary.employeesCount} of {data.summary.totalEmployeesCount ?? data.summary.employeesCount} employees
+                {isSummaryLoading ? 0 : (data?.summary.employeesCount ?? 0)} of {data?.summary.totalEmployeesCount ?? data?.summary.employeesCount ?? 0} employees
               </div>
             </div>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-            <SummaryMetric label="Absences" value={displayCount(data.summary.totalAbsences)} color="text-red-600" />
-            <SummaryMetric label="Late (min)" value={displayCount(data.summary.totalLateMinutes)} color="text-amber-600" />
-            <SummaryMetric label="Undertime (min)" value={displayCount(data.summary.totalUndertimeMinutes)} color="text-orange-600" />
-            <SummaryMetric label="Approved OT (hrs)" value={displayHours(data.summary.totalApprovedOvertimeHours)} color="text-primary" />
+            <SummaryMetric label="Absences" value={displayCount(data?.summary.totalAbsences ?? 0)} color="text-red-600" />
+            <SummaryMetric label="Late (min)" value={displayCount(data?.summary.totalLateMinutes ?? 0)} color="text-amber-600" />
+            <SummaryMetric label="Undertime (min)" value={displayCount(data?.summary.totalUndertimeMinutes ?? 0)} color="text-orange-600" />
+            <SummaryMetric label="Approved OT (hrs)" value={displayHours(data?.summary.totalApprovedOvertimeHours ?? 0)} color="text-primary" />
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">{data.staffCategory} Attendance Summary</CardTitle>
+          <CardTitle className="text-base">{data?.staffCategory ?? staffCategory} Attendance Summary</CardTitle>
           <CardDescription>
-            {data.periodLabel} totals computed from validated attendance records, missing workdays, and approved leave between {data.dateFrom} and {data.dateTo}.
+            {data?.periodLabel ?? "Selected period"} totals computed from validated attendance records, missing workdays, and approved leave between {data?.dateFrom ?? "-"} and {data?.dateTo ?? "-"}.
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-0">
@@ -332,10 +322,16 @@ export function AttendanceSummaryPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.rows.length === 0 ? (
+                {isSummaryLoading || !data ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="py-12 text-center text-sm text-muted-foreground">
+                      <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading attendance summary records...
+                    </TableCell>
+                  </TableRow>
+                ) : data.rows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
-                      No {data.staffCategory.toLowerCase()} employees were available for this selected cutoff.
+                      No {(data?.staffCategory ?? staffCategory).toLowerCase()} employees were available for this selected cutoff.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -522,3 +518,5 @@ function SummaryMetric({
     </div>
   );
 }
+
+

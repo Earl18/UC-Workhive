@@ -71,15 +71,38 @@ model SystemSettings {
 }
 
 model FeatureToggleConfig {
-  id                String   @id @default("default")
-  manualAttendance  Boolean  @default(true)
-  qrAttendance      Boolean  @default(true)
-  leaveModule       Boolean  @default(true)
-  recruitmentModule Boolean  @default(true)
-  gpsAttendance     Boolean  @default(false)
-  overtimeModule    Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                        String   @id @default("default")
+  manualAttendance          Boolean  @default(true)
+  qrAttendance              Boolean  @default(true)
+  leaveModule               Boolean  @default(true)
+  recruitmentModule         Boolean  @default(true)
+  gpsAttendance             Boolean  @default(false)
+  overtimeModule            Boolean  @default(true)
+  employeeDashboard         Boolean  @default(true)
+  employeeProfile           Boolean  @default(true)
+  employeeTimeClock         Boolean  @default(true)
+  employeeAttendanceHistory Boolean  @default(true)
+  employeeLeave             Boolean  @default(true)
+  employeeHolidays          Boolean  @default(true)
+  employeeDocuments         Boolean  @default(true)
+  employeeNotifications     Boolean  @default(true)
+  hrDashboard               Boolean  @default(true)
+  hrEmployees               Boolean  @default(true)
+  hrAttendanceReport        Boolean  @default(true)
+  hrAttendanceValidation    Boolean  @default(true)
+  hrAttendanceSummary       Boolean  @default(true)
+  hrTardiness               Boolean  @default(true)
+  hrLeaveManagement         Boolean  @default(true)
+  hrLeaveSummary            Boolean  @default(true)
+  hrJobPostings             Boolean  @default(true)
+  hrApplications            Boolean  @default(true)
+  hrInterviewScheduling     Boolean  @default(true)
+  hrInterviews              Boolean  @default(true)
+  hrVideoConferencing       Boolean  @default(true)
+  hrHolidays                Boolean  @default(true)
+  hrReports                 Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
 }
 
 model GeofenceZone {
@@ -102,6 +125,16 @@ model EmailTemplateRecord {
   body      String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ApplicantTemplateSetting {
+  key           String   @id
+  label         String
+  fileName      String   @default("")
+  storageBucket String   @default("")
+  storagePath   String   @default("")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model AuditLog {
@@ -182,6 +215,7 @@ model HolidayRecord {
   @@index([date])
   @@index([type])
 }
+
 
 model AttendanceImportBatch {
   id                String          @id @default(cuid())

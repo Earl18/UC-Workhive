@@ -174,7 +174,8 @@ export function GpsZonesPage() {
   const draftCircleRef = useRef<any>(null);
   const zoneCircleRefs = useRef<Map<string, any>>(new Map());
   const zoneMarkerRefs = useRef<Map<string, any>>(new Map());
-  const browserKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? null;
+  const [browserKey, setBrowserKey] = useState<string | null>(null);
+  const [browserKeyReady, setBrowserKeyReady] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [inspectorMode, setInspectorMode] = useState<InspectorMode>(null);
   const [createDraft, setCreateDraft] = useState<ZoneDraft>(buildDraft(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng));
@@ -227,6 +228,52 @@ export function GpsZonesPage() {
   useEffect(() => {
     let active = true;
 
+    const loadBrowserKey = async () => {
+      try {
+        const response = await fetch("/api/google-maps/browser-key", {
+          cache: "no-store",
+        });
+        const payload = (await response.json()) as { key?: string | null; error?: string };
+
+        if (!response.ok) {
+          throw new Error(payload.error ?? "Unable to load Google Maps configuration.");
+        }
+
+        if (!active) {
+          return;
+        }
+
+        const nextKey = payload.key?.trim() || null;
+        setBrowserKey(nextKey);
+        setBrowserKeyReady(true);
+
+        if (!nextKey) {
+          setMapError("Google Maps API key is not configured on the server.");
+        } else {
+          setMapError((current) =>
+            current === "Google Maps API key is not configured on the server." ? null : current,
+          );
+        }
+      } catch (loadError) {
+        if (!active) {
+          return;
+        }
+
+        setBrowserKeyReady(true);
+        setMapError(loadError instanceof Error ? loadError.message : "Unable to load Google Maps configuration.");
+      }
+    };
+
+    void loadBrowserKey();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
     const loadCampusPin = async () => {
       if (!campusLookup) {
         return;
@@ -252,9 +299,6 @@ export function GpsZonesPage() {
           throw new Error(geocodePayload.error ?? "Unable to find the campus location on Google Maps.");
         }
 
-        if (!browserKey) {
-          throw new Error("NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is missing.");
-        }
 
         if (!active) {
           return;
@@ -289,10 +333,10 @@ export function GpsZonesPage() {
     return () => {
       active = false;
     };
-  }, [campusLookup, campusPlaceId, browserKey]);
+  }, [campusLookup, campusPlaceId, selectedZone]);
 
   useEffect(() => {
-    if (!browserKey || !mapContainerRef.current || mapRef.current) {
+    if (!browserKeyReady || !browserKey || !mapContainerRef.current || mapRef.current) {
       return;
     }
 
@@ -332,7 +376,7 @@ export function GpsZonesPage() {
       disposed = true;
       setMapReady(false);
     };
-  }, [browserKey, mapFocus.lat, mapFocus.lng]);
+  }, [browserKey, browserKeyReady, mapFocus.lat, mapFocus.lng]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.google?.maps) {
@@ -981,11 +1025,4 @@ export function GpsZonesPage() {
     </div>
   );
 }
-
-
-
-
-
-
-
 

@@ -32,8 +32,10 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { useToast } from "@/hooks/use-toast";
 import { useStaffJobPostings } from "@/hooks/use-job-postings";
 import { useHrApplications } from "@/hooks/use-applications";
+import { useWorkHive } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import {
+  ArrowLeft,
   ArrowRight,
   CalendarClock,
   Check,
@@ -71,11 +73,26 @@ const NEXT_STAGE: Partial<Record<ApplicantStage, ApplicantStage>> = {
   Offer: "Hired",
 };
 
+const PREVIOUS_STAGE: Partial<Record<ApplicantStage, ApplicantStage>> = {
+  Screening: "New",
+  Interview: "Screening",
+  Offer: "Interview",
+  Hired: "Offer",
+};
+
+function previousStageFor(applicant: Applicant): ApplicantStage | null {
+  if (applicant.stage === "Rejected") {
+    return [...(applicant.stageHistory ?? [])].reverse().find((entry) => entry.stage !== "Rejected")?.stage ?? "New";
+  }
+  return PREVIOUS_STAGE[applicant.stage] ?? null;
+}
+
 const DEFAULT_STAGE_PAGE_SIZE = 10;
 const STAGE_PAGE_SIZE_OPTIONS = [5, 10, 25, 50] as const;
 
 export function ApplicationsPage() {
   const { toast } = useToast();
+  const { selectedApplicantId, setSelectedApplicantId } = useWorkHive();
   const queryClient = useQueryClient();
   const jobPostingsQuery = useStaffJobPostings();
   const applicationsQuery = useHrApplications();
@@ -93,7 +110,9 @@ export function ApplicationsPage() {
   const [search, setSearch] = useState("");
   const [detailApplicant, setDetailApplicant] = useState<Applicant | null>(null);
   const [downloadingApplicantId, setDownloadingApplicantId] = useState<string | null>(null);
-  const activeDetailApplicant = detailApplicant ? applicants.find((item) => item.id === detailApplicant.id) ?? detailApplicant : null;
+  const activeDetailApplicant = selectedApplicantId
+    ? applicants.find((item) => item.id === selectedApplicantId) ?? null
+    : detailApplicant ? applicants.find((item) => item.id === detailApplicant.id) ?? detailApplicant : null;
   const [stagePages, setStagePages] = useState<Record<ApplicantStage, number>>(() => createStageNumberRecord(1));
   const [stagePageSizes, setStagePageSizes] = useState<Record<ApplicantStage, number>>(() => createStageNumberRecord(DEFAULT_STAGE_PAGE_SIZE));
 
@@ -176,10 +195,12 @@ export function ApplicationsPage() {
   }, [applicants]);
 
   function openApplicantDetail(applicant: Applicant) {
+    setSelectedApplicantId(null);
     setDetailApplicant(applicant);
   }
 
   function closeApplicantDetail() {
+    setSelectedApplicantId(null);
     setDetailApplicant(null);
   }
 
@@ -378,6 +399,10 @@ export function ApplicationsPage() {
                         visibleApplicants.map((applicant) => {
                           const isDownloading = downloadingApplicantId === applicant.id;
                           const nextStage = NEXT_STAGE[applicant.stage];
+                          const previousStage = previousStageFor(applicant);
+                          const hasScheduledInterview = Boolean(applicant.schedule?.date);
+                          const interviewDone = applicant.schedule?.status === "Done";
+                          const canGoBack = previousStage !== "Screening" || applicant.stage !== "Interview" || !hasScheduledInterview;
 
                           return (
                             <TableRow key={applicant.id} className="cursor-pointer" onClick={() => openApplicantDetail(applicant)}>
@@ -401,8 +426,13 @@ export function ApplicationsPage() {
                                     <Download className="mr-1.5 h-4 w-4" />
                                     {isDownloading ? "Downloading..." : "ZIP"}
                                   </Button>
+                                  {previousStage && canGoBack ? (
+                                    <Button size="sm" variant="outline" onClick={(event) => { event.stopPropagation(); jumpToStage(applicant, previousStage); }} disabled={stageMutation.isPending} aria-label={`Move ${applicantDisplayName(applicant)} back to ${previousStage}`}>
+                                      <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to {previousStage}
+                                    </Button>
+                                  ) : null}
                                   {nextStage ? (
-                                    <Button size="sm" className="bg-primary text-white hover:bg-primary/90" onClick={(event) => { event.stopPropagation(); jumpToStage(applicant, nextStage); }} disabled={stageMutation.isPending}>
+                                    <Button size="sm" className="bg-primary text-white hover:bg-primary/90" onClick={(event) => { event.stopPropagation(); jumpToStage(applicant, nextStage); }} disabled={stageMutation.isPending || (applicant.stage === "Interview" && nextStage === "Offer" && !interviewDone)} title={applicant.stage === "Interview" && nextStage === "Offer" && !interviewDone ? "Complete the interview before moving to Offer" : undefined}>
                                       {nextStage}
                                     </Button>
                                   ) : null}
@@ -596,6 +626,11 @@ export function ApplicationsPage() {
               <DialogFooter className="border-t border-border/60 pt-4">
                 <div className="flex w-full justify-end">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+                    {previousStageFor(activeDetailApplicant) && !(activeDetailApplicant.stage === "Interview" && previousStageFor(activeDetailApplicant) === "Screening" && activeDetailApplicant.schedule?.date) ? (
+                      <Button variant="outline" className="w-full sm:w-auto" onClick={() => jumpToStage(activeDetailApplicant, previousStageFor(activeDetailApplicant)!)} disabled={stageMutation.isPending}>
+                        <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to {previousStageFor(activeDetailApplicant)}
+                      </Button>
+                    ) : null}
                     {activeDetailApplicant.stage !== "Rejected" && activeDetailApplicant.stage !== "Hired" ? (
                       <Button
                         variant="outline"

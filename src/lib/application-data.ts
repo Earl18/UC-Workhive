@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
-import type { Applicant, ApplicantStage, ApplicantStageHistoryEntry, InterviewSchedule } from "@/lib/types";
+import type { Applicant, ApplicantStage, ApplicantStageHistoryEntry, InterviewEvaluation, InterviewSchedule } from "@/lib/types";
 
 type StoredJobPosting = {
   kind: "job-posting";
@@ -36,6 +36,7 @@ type StoredApplicantSubmission = {
   requirementsArchivePath: string;
   stageHistory?: ApplicantStageHistoryEntry[];
   schedule?: Applicant["schedule"];
+  interviewEvaluation?: InterviewEvaluation;
 };
 
 const JOB_POSTING_AUTHOR_ID = "workhive-job-postings";
@@ -161,6 +162,7 @@ function parseStoredApplicantSubmission(content: string | null): StoredApplicant
       requirementsArchivePath: String(parsed.requirementsArchivePath ?? "").trim(),
       stageHistory: parseStageHistory(parsed.stageHistory),
       schedule: parsed.schedule,
+      interviewEvaluation: parsed.interviewEvaluation,
     };
   } catch {
     return null;
@@ -197,6 +199,7 @@ function toApplicant(row: { id: string; content: string | null }): Applicant | n
     requirements: parsed.requirements,
     stageHistory: parsed.stageHistory,
     schedule: parsed.schedule,
+    interviewEvaluation: parsed.interviewEvaluation,
   } satisfies Applicant;
 }
 
@@ -337,6 +340,13 @@ export async function updateSubmittedApplicantStage(input: {
     throw new Error("Applicant record is invalid.");
   }
 
+  if (parsed.stage === "Interview" && input.stage === "Offer" && parsed.schedule?.status !== "Done") {
+    throw new Error("Complete the interview before moving this applicant to Offer.");
+  }
+  if (parsed.stage === "Interview" && input.stage === "Screening" && parsed.schedule?.date) {
+    throw new Error("This applicant has an assigned interview and cannot move back to Screening.");
+  }
+
   const movedAt = new Date().toISOString();
   const nextStageHistory = [
     ...(parsed.stageHistory ?? []).filter((entry) => entry.stage !== input.stage),
@@ -375,6 +385,10 @@ export async function updateSubmittedApplicantSchedule(input: {
   const parsed = parseStoredApplicantSubmission(row.content);
   if (!parsed) {
     throw new Error("Applicant record is invalid.");
+  }
+
+  if (parsed.schedule?.status === "Done" || parsed.interviewEvaluation) {
+    throw new Error("This interview has an evaluation and can no longer be rescheduled.");
   }
 
   const nextSchedule = input.schedule as InterviewSchedule | undefined;
@@ -423,6 +437,7 @@ export async function updateSubmittedApplicantSchedule(input: {
     stage: "Interview",
     schedule: {
       ...nextSchedule,
+      status: "Scheduled",
       time: `${nextSchedule.startTime} - ${nextSchedule.endTime}`,
       createdBy: interviewerName,
       panel: [interviewerName],
@@ -439,5 +454,34 @@ export async function updateSubmittedApplicantSchedule(input: {
     throw new Error("Unable to update applicant schedule.");
   }
 
+  return applicant;
+}
+
+export async function saveSubmittedApplicantInterviewEvaluation(input: {
+  applicantId: string;
+  evaluation: InterviewEvaluation;
+}) {
+  const row = await getApplicantRowById(input.applicantId);
+  if (!row) throw new Error("Applicant not found.");
+
+  const parsed = parseStoredApplicantSubmission(row.content);
+  if (!parsed) throw new Error("Applicant record is invalid.");
+
+  const updated = {
+    ...parsed,
+    interviewEvaluation: input.evaluation,
+    schedule: parsed.schedule ? {
+      ...parsed.schedule,
+      status: input.evaluation.status === "submitted" ? "Done" : parsed.schedule.status ?? "Scheduled",
+    } : undefined,
+  } satisfies StoredApplicantSubmission;
+
+  await db.post.update({
+    where: { id: input.applicantId },
+    data: { content: JSON.stringify(updated) },
+  });
+
+  const applicant = toApplicant({ id: input.applicantId, content: JSON.stringify(updated) });
+  if (!applicant) throw new Error("Unable to save interview evaluation.");
   return applicant;
 }

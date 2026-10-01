@@ -34,9 +34,10 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminEmailTemplates } from "@/hooks/use-feature-toggles";
 import { useSystemSettings } from "@/hooks/use-system-settings";
-import { WorkHiveLogo } from "@/components/shared/workhive-logo";
+import { renderWorkHiveEmailHtml } from "@/lib/email-layout";
 import type { CoreEmailTemplateType, EmailTemplate, EmailTemplateType } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { PLACEHOLDER_FIELDS, type EmailPlaceholder, type PlaceholderSource } from "@/lib/email-placeholder-fields";
 
 const CORE_TEMPLATE_ORDER: CoreEmailTemplateType[] = [
   "Leave Approved",
@@ -63,27 +64,6 @@ const CORE_ICON_MAP: Record<CoreEmailTemplateType, LucideIcon> = {
   "Welcome Email": Sparkles,
   "Password Reset": KeyRound,
 };
-
-const PLACEHOLDERS: { label: string; token: string }[] = [
-  { label: "Employee Name", token: "[Employee Name]" },
-  { label: "Applicant Name", token: "[Applicant Name]" },
-  { label: "User", token: "[User]" },
-  { label: "Position", token: "[Position]" },
-  { label: "Date From", token: "[Date From]" },
-  { label: "Date To", token: "[Date To]" },
-  { label: "Date", token: "[Date]" },
-  { label: "Time", token: "[Time]" },
-  { label: "Leave Type", token: "[Leave Type]" },
-  { label: "Hours", token: "[Hours]" },
-  { label: "Reason", token: "[Reason]" },
-  { label: "Platform", token: "[Platform]" },
-  { label: "Location/Link", token: "[Location/Link]" },
-  { label: "Reset Link", token: "[Reset Link]" },
-  { label: "Holiday Name", token: "[Holiday Name]" },
-  { label: "Holiday Type", token: "[Holiday Type]" },
-  { label: "New Date", token: "[New Date]" },
-  { label: "New Time", token: "[New Time]" },
-];
 
 function iconForTemplate(type: string): LucideIcon {
   return (CORE_ICON_MAP as Partial<Record<string, LucideIcon>>)[type] ?? Mail;
@@ -116,6 +96,9 @@ function TemplateIcon({ type, className }: { type: string; className?: string })
 
 type DraftEditorProps = {
   template: EmailTemplate;
+  placeholders: EmailPlaceholder[];
+  onAddPlaceholder: (label: string, source: PlaceholderSource, field: string) => Promise<void>;
+  isAddingPlaceholder: boolean;
   mode: "edit" | "create";
   onSaved: (type: string, subject: string, body: string) => Promise<void>;
   onCancelCreate?: () => void;
@@ -126,6 +109,9 @@ type DraftEditorProps = {
 
 function DraftEditor({
   template,
+  placeholders,
+  onAddPlaceholder,
+  isAddingPlaceholder,
   mode,
   onSaved,
   onCancelCreate,
@@ -139,6 +125,9 @@ function DraftEditor({
   const [body, setBody] = useState(template.body);
   const [dirty, setDirty] = useState(mode === "create");
   const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const [newLabel, setNewLabel] = useState("");
+  const [newSource, setNewSource] = useState<PlaceholderSource>("employee");
+  const [newField, setNewField] = useState<string>(PLACEHOLDER_FIELDS.employee[0]);
 
   const handleFieldChange = (setter: (value: string) => void) => (value: string) => {
     setter(value);
@@ -275,17 +264,47 @@ function DraftEditor({
           <div className="rounded-lg border border-border bg-muted/30 p-2.5">
             <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Available placeholders - click to insert</p>
             <div className="flex flex-wrap gap-1.5">
-              {PLACEHOLDERS.map((placeholder) => (
+              {placeholders.map((placeholder) => (
                 <button
                   key={placeholder.token}
                   type="button"
                   onClick={() => insertPlaceholder(placeholder.token)}
+                  title={`${placeholder.source}.${placeholder.field}`}
                   className="rounded-md border border-primary/20 bg-primary/5 px-2 py-1 font-mono text-[11px] text-primary transition-colors hover:border-primary/40 hover:bg-primary/10 active:scale-95"
                 >
                   {placeholder.token}
                 </button>
               ))}
             </div>
+            <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-border pt-3">
+              <div className="min-w-[140px] flex-1 space-y-1">
+                <Label className="text-[11px]">New placeholder</Label>
+                <Input value={newLabel} onChange={(event) => setNewLabel(event.target.value)} placeholder="Department Name" maxLength={60} className="h-8 text-xs" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Source</Label>
+                <select aria-label="Placeholder source" value={newSource} onChange={(event) => {
+                  const source = event.target.value as PlaceholderSource;
+                  setNewSource(source);
+                  setNewField(PLACEHOLDER_FIELDS[source][0]);
+                }} className="h-8 rounded-md border border-input bg-background px-2 text-xs">
+                  {Object.keys(PLACEHOLDER_FIELDS).map((source) => <option key={source} value={source}>{source}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Field</Label>
+                <select aria-label="Placeholder field" value={newField} onChange={(event) => setNewField(event.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs">
+                  {PLACEHOLDER_FIELDS[newSource].map((field) => <option key={field} value={field}>{field}</option>)}
+                </select>
+              </div>
+              <Button type="button" size="sm" variant="outline" disabled={!newLabel.trim() || isAddingPlaceholder} onClick={async () => {
+                try {
+                  await onAddPlaceholder(newLabel.trim(), newSource, newField);
+                  setNewLabel("");
+                } catch { /* Mutation displays the error. */ }
+              }}><Plus className="h-3.5 w-3.5" /> Add</Button>
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">Database fields use the matching record when this template is rendered. Event fields are supplied by the action sending the email.</p>
           </div>
 
           <Textarea
@@ -296,7 +315,7 @@ function DraftEditor({
             className="font-mono text-xs"
             placeholder="Email body..."
           />
-          <p className="text-[11px] text-muted-foreground">Separate paragraphs with a blank line. Placeholders are replaced automatically at send time.</p>
+          <p className="text-[11px] text-muted-foreground">Separate paragraphs with a blank line. The email renderer resolves placeholders from matching records and event values.</p>
         </div>
 
         <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-4">
@@ -361,6 +380,21 @@ export function EmailTemplatesPage() {
   const contactNumber = settings?.contactNumber ?? "(032) 412-1234";
 
   const emailTemplates = data?.emailTemplates ?? [];
+  const placeholders = data?.placeholders ?? [];
+
+  const addPlaceholderMutation = useMutation({
+    mutationFn: async ({ label, source, field }: { label: string; source: PlaceholderSource; field: string }) => {
+      const response = await fetch("/api/admin/email-placeholders", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ label, source, field }) });
+      const payload = (await response.json()) as { placeholder?: EmailPlaceholder; error?: string };
+      if (!response.ok || !payload.placeholder) throw new Error(payload.error ?? "Unable to add placeholder.");
+      return payload.placeholder;
+    },
+    onSuccess: (placeholder) => {
+      queryClient.setQueryData<{ emailTemplates: EmailTemplate[]; placeholders: EmailPlaceholder[] } | undefined>(["admin-email-templates"], (existing) => existing ? { ...existing, placeholders: [...existing.placeholders, placeholder] } : existing);
+      toast({ title: "Placeholder added", description: `${placeholder.token} can now be used in any template.` });
+    },
+    onError: (mutationError) => toast({ title: "Unable to add placeholder", description: mutationError instanceof Error ? mutationError.message : "Please try again.", variant: "destructive" }),
+  });
 
   const orderedTemplates = useMemo(() => {
     const coreTemplates = CORE_TEMPLATE_ORDER
@@ -389,11 +423,6 @@ export function EmailTemplatesPage() {
 
   const activeTemplate = editorMode === "create" ? createDraft : current;
 
-  const bodyParagraphs = useMemo(
-    () => (activeTemplate ? activeTemplate.body.split(/\n\n+/) : []),
-    [activeTemplate],
-  );
-
   const saveMutation = useMutation({
     mutationFn: async ({ type, subject, body }: { type: EmailTemplateType; subject: string; body: string }) => {
       const response = await fetch(`/api/admin/email-templates/${encodeURIComponent(type)}`, {
@@ -408,7 +437,8 @@ export function EmailTemplatesPage() {
       return payload.template;
     },
     onSuccess: (template) => {
-      queryClient.setQueryData<{ emailTemplates: EmailTemplate[] } | undefined>(["admin-email-templates"], (existing) => ({
+      queryClient.setQueryData<{ emailTemplates: EmailTemplate[]; placeholders: EmailPlaceholder[] } | undefined>(["admin-email-templates"], (existing) => ({
+        placeholders: existing?.placeholders ?? [],
         emailTemplates: existing?.emailTemplates
           ? existing.emailTemplates.map((entry) => (entry.type === template.type ? template : entry))
           : [template],
@@ -438,7 +468,8 @@ export function EmailTemplatesPage() {
       return payload.template;
     },
     onSuccess: (template) => {
-      queryClient.setQueryData<{ emailTemplates: EmailTemplate[] } | undefined>(["admin-email-templates"], (existing) => ({
+      queryClient.setQueryData<{ emailTemplates: EmailTemplate[]; placeholders: EmailPlaceholder[] } | undefined>(["admin-email-templates"], (existing) => ({
+        placeholders: existing?.placeholders ?? [],
         emailTemplates: existing?.emailTemplates ? [...existing.emailTemplates, template] : [template],
       }));
       void queryClient.invalidateQueries({ queryKey: ["admin-email-templates"], refetchType: "inactive" });
@@ -467,7 +498,8 @@ export function EmailTemplatesPage() {
     },
     onSuccess: (type) => {
       const remainingTemplates = orderedTemplates.filter((entry) => entry.type !== type);
-      queryClient.setQueryData<{ emailTemplates: EmailTemplate[] } | undefined>(["admin-email-templates"], (existing) => ({
+      queryClient.setQueryData<{ emailTemplates: EmailTemplate[]; placeholders: EmailPlaceholder[] } | undefined>(["admin-email-templates"], (existing) => ({
+        placeholders: existing?.placeholders ?? [],
         emailTemplates: (existing?.emailTemplates ?? []).filter((entry) => entry.type !== type),
       }));
       setSelectedType(remainingTemplates[0]?.type ?? "");
@@ -510,6 +542,13 @@ export function EmailTemplatesPage() {
   if (!activeTemplate) {
     return <div className="p-6 text-sm text-muted-foreground">No email templates found.</div>;
   }
+  const previewHtml = renderWorkHiveEmailHtml({
+    type: activeTemplate.type || "New Template",
+    subject: activeTemplate.subject || "- no subject -",
+    body: activeTemplate.body,
+    settings: { organizationName, campusAddress, contactNumber, hrEmail },
+    logoUrl: "/workhive-logo.png",
+  });
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -521,7 +560,7 @@ export function EmailTemplatesPage() {
           </Badge>
           <div>
             <h1 className="text-2xl font-bold text-foreground">Email Templates</h1>
-            <p className="text-sm text-muted-foreground">Edit and add stored email templates used by automated WorkHive notifications.</p>
+            <p className="text-sm text-muted-foreground">Edit the email templates sent by WorkHive actions. Custom templates can be connected to new workflows.</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -588,10 +627,13 @@ export function EmailTemplatesPage() {
         <DraftEditor
           key={`${editorMode}-${activeTemplate.type || "new"}`}
           template={activeTemplate}
+          placeholders={placeholders}
+          onAddPlaceholder={(label, source, field) => addPlaceholderMutation.mutateAsync({ label, source, field }).then(() => undefined)}
+          isAddingPlaceholder={addPlaceholderMutation.isPending}
           mode={editorMode}
           onSaved={handleSaved}
           onCancelCreate={() => setEditorMode("edit")}
-          onDelete={editorMode === "edit" ? async (type) => deleteMutation.mutateAsync(type) : undefined}
+          onDelete={editorMode === "edit" ? async (type) => { await deleteMutation.mutateAsync(type); } : undefined}
           isSaving={saveMutation.isPending || createMutation.isPending}
           isDeleting={deleteMutation.isPending}
         />
@@ -634,58 +676,17 @@ export function EmailTemplatesPage() {
           </CardHeader>
           <CardContent className="flex-1 p-4">
             <div className="flex justify-center">
-              <div className={cn("w-full overflow-hidden rounded-lg border border-border bg-white shadow-sm transition-all duration-300", previewMaxWidth)}>
-                <div className="flex items-center justify-between gap-4 px-6 py-4" style={{ background: "linear-gradient(135deg, #60a5fa 0%, #1e3a8a 100%)" }}>
-                  <div className="min-w-0">
-                    <WorkHiveLogo size={42} light />
-                  </div>
-                  <div className="hidden text-right text-[10px] text-white/78 sm:block">
-                    <p>Human Resource Department</p>
-                    <p>{organizationName}</p>
-                  </div>
-                </div>
-
-                <div className="border-b border-border bg-slate-50 px-6 py-3">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Subject</p>
-                  <p className="text-sm font-semibold text-foreground">{activeTemplate.subject || <span className="text-muted-foreground/60">- no subject -</span>}</p>
-                </div>
-
-                <div className="max-h-[24rem] overflow-y-auto px-6 py-5">
-                  <div className="mb-3 flex items-center gap-2 text-[11px] font-medium uppercase tracking-wider text-primary/80">
-                    {editorMode === "create" ? <Plus className="h-3.5 w-3.5" /> : <TemplateIcon type={activeTemplate.type} className="h-3.5 w-3.5" />}
-                    <span>{activeTemplate.type || "New Template"}</span>
-                  </div>
-                  {bodyParagraphs.map((paragraph, index) => (
-                    <p key={index} className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                      {paragraph || "\u00A0"}
-                    </p>
-                  ))}
-                </div>
-
-                <div className="bg-slate-50 px-6 py-4">
-                  <Separator className="mb-3" />
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-[10px] text-muted-foreground">
-                      <p className="font-medium text-foreground">{organizationName} - HR Department</p>
-                      <p>{campusAddress}</p>
-                      <p>{hrEmail} {contactNumber}</p>
-                    </div>
-                    <div className="text-right text-[10px] text-muted-foreground">
-                      <p>This is an automated message.</p>
-                      <p>Please do not reply directly.</p>
-                      <p className="mt-1 font-medium text-primary">WorkHive HRMS</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-center gap-1.5 px-6 py-2 text-[10px] font-medium uppercase tracking-wider text-white/90" style={{ background: "linear-gradient(135deg, #60a5fa 0%, #1e3a8a 100%)" }}>
-                  <Mail className="h-3 w-3" />
-                  Sent from WorkHive HRMS
-                </div>
+              <div className={cn("w-full transition-all duration-300", previewMaxWidth)}>
+                <iframe
+                  title="Email template preview"
+                  sandbox=""
+                  srcDoc={previewHtml}
+                  className="h-[36rem] w-full rounded-lg border border-border bg-white shadow-sm"
+                />
               </div>
             </div>
 
-            <p className="mt-3 text-center text-[11px] text-muted-foreground">Preview renders in light mode to match how recipients view the email in their inbox.</p>
+            <p className="mt-3 text-center text-[11px] text-muted-foreground">This editor preview keeps placeholder tokens visible. Outgoing emails replace them with the applicant, employee, or event values.</p>
           </CardContent>
         </Card>
       </div>
@@ -696,7 +697,7 @@ export function EmailTemplatesPage() {
         </div>
         <div className="space-y-1">
           <p className="text-sm font-medium text-foreground">Stored template behavior</p>
-          <p className="text-xs text-muted-foreground">Subject and body are stored in the database per template. You can add or delete templates here, and the stored count updates from the live database records.</p>
+          <p className="text-xs text-muted-foreground">Templates and placeholder definitions are stored in the database. Add a placeholder by choosing its source and field, then use it in any template.</p>
         </div>
       </div>
     </div>

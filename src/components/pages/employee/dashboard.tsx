@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useWorkHive } from "@/lib/store";
+import { usePortalNotifications } from "@/hooks/use-portal-notifications";
+import { notificationTime } from "@/lib/portal-notifications";
 import { getAvailableLeaveTypes, getLeaveTypeLabel, LeaveType, type Employee, type Holiday, type LeaveRequest } from "@/lib/types";
 import {
   Card,
@@ -123,7 +125,8 @@ function daysFromNow(targetDate: string, todayStr: string) {
 }
 
 export function DashboardPage() {
-  const { setView } = useWorkHive();
+  const { currentUser, setView } = useWorkHive();
+  const notificationFeed = usePortalNotifications(currentUser?.id);
   const [now, setNow] = useState<Date | null>(null);
 
   const profileQuery = useQuery({
@@ -420,36 +423,35 @@ export function DashboardPage() {
         </Card>
       </div>
 
-      <Card className="border-border opacity-80">
+      <Card className="border-border">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base">
               <Bell className="h-4 w-4 text-primary" /> Latest Notifications
             </CardTitle>
-            <Button variant="ghost" size="sm" disabled>
+            <Button variant="ghost" size="sm" onClick={() => setView("employee:notifications")}>
               View all <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          <CardDescription>
-            This section stays visible for the original layout, but notifications are not active yet.
-          </CardDescription>
+          <CardDescription>Recent updates for your account.</CardDescription>
         </CardHeader>
         <CardContent>
-          <ul className="divide-y divide-border rounded-lg border border-dashed border-border bg-muted/20">
-            {[
-              "Notifications will appear here once this module is implemented.",
-              "HR updates and reminders will show in this area.",
-              "You can keep this section visible while the backend is still pending.",
-            ].map((message, index) => (
-              <li key={index} className="flex items-start gap-3 px-4 py-3 text-sm text-muted-foreground">
-                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-muted-foreground/40" />
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-foreground/80">Coming soon</p>
-                  <p className="text-xs text-muted-foreground">{message}</p>
-                </div>
-                <span className="shrink-0 text-[10px] text-muted-foreground">--</span>
+          <ul className="divide-y divide-border rounded-lg border border-border">
+            {notificationFeed.notifications.slice(0, 3).map((item) => (
+              <li key={item.id}>
+                <button type="button" className="flex w-full items-start gap-3 px-4 py-3 text-left text-sm hover:bg-accent/40" onClick={() => {
+                  if (!item.read) void notificationFeed.markRead(item.id).catch(() => {});
+                  setView(item.view);
+                }}>
+                  <span className={item.read ? "mt-1.5 h-2 w-2 shrink-0 rounded-full bg-muted" : "mt-1.5 h-2 w-2 shrink-0 rounded-full bg-gold"} />
+                  <span className="min-w-0 flex-1"><span className="block font-medium text-foreground">{item.title}</span><span className="block text-xs text-muted-foreground">{item.message}</span></span>
+                  <span className="shrink-0 text-[10px] text-muted-foreground">{notificationTime(item.timestamp)}</span>
+                </button>
               </li>
             ))}
+            {!notificationFeed.isLoading && !notificationFeed.isError && notificationFeed.notifications.length === 0 ? <li className="px-4 py-5 text-sm text-muted-foreground">No notifications yet.</li> : null}
+            {notificationFeed.isLoading ? <li className="px-4 py-5 text-sm text-muted-foreground">Loading notifications...</li> : null}
+            {notificationFeed.isError ? <li className="px-4 py-5 text-sm text-destructive">Unable to load notifications.</li> : null}
           </ul>
         </CardContent>
       </Card>

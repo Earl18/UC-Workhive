@@ -744,9 +744,7 @@ export async function getAdminDashboardSummary(): Promise<AdminDashboardSummary>
   const fourteenDaysAgo = new Date(now);
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13);
   fourteenDaysAgo.setHours(0, 0, 0, 0);
-  const emailServiceConnected = Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-  );
+  const emailServiceConnected = Boolean(process.env.BREVO_API_KEY);
 
   const [
     totalUsersProbe,

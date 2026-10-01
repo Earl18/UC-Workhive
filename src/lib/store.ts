@@ -88,6 +88,7 @@ interface WorkHiveState {
   selectedEmployeeId: string | null;
   selectedApplicantId: string | null;
   selectedInterviewApplicantId: string | null;
+  selectedVideoApplicantId: string | null;
   sidebarCollapsed: boolean;
   employees: Employee[];
   attendance: AttendanceRecord[];
@@ -111,6 +112,7 @@ interface WorkHiveState {
   setSelectedEmployeeId: (id: string | null) => void;
   setSelectedApplicantId: (id: string | null) => void;
   setSelectedInterviewApplicantId: (id: string | null) => void;
+  setSelectedVideoApplicantId: (id: string | null) => void;
   toggleSidebar: () => void;
   updateEmployee: (id: string, patch: Partial<Employee>) => void;
   addEmployee: (emp: Employee) => void;
@@ -147,6 +149,7 @@ export const useWorkHive = create<WorkHiveState>((set, get) => ({
   selectedEmployeeId: null,
   selectedApplicantId: null,
   selectedInterviewApplicantId: null,
+  selectedVideoApplicantId: null,
   sidebarCollapsed: false,
   employees: EMPLOYEES,
   attendance: ATTENDANCE,
@@ -165,7 +168,7 @@ export const useWorkHive = create<WorkHiveState>((set, get) => ({
   setHolidays: (holidays) => set({ holidays }),
 
   setAuthenticatedUser: (user) => {
-    set({ currentUser: user, view: DASHBOARD_VIEWS[user.role] });
+    set({ currentUser: user, view: DASHBOARD_VIEWS[user.role], selectedVideoApplicantId: null });
   },
 
   hydrateSession: (user) => {
@@ -191,7 +194,7 @@ export const useWorkHive = create<WorkHiveState>((set, get) => ({
         cache: "no-store",
       });
     } finally {
-      set({ currentUser: null, view: "public:landing" });
+      set({ currentUser: null, view: "public:landing", selectedVideoApplicantId: null });
     }
   },
 
@@ -200,6 +203,7 @@ export const useWorkHive = create<WorkHiveState>((set, get) => ({
   setSelectedEmployeeId: (id) => set({ selectedEmployeeId: id }),
   setSelectedApplicantId: (id) => set({ selectedApplicantId: id }),
   setSelectedInterviewApplicantId: (id) => set({ selectedInterviewApplicantId: id }),
+  setSelectedVideoApplicantId: (id) => set({ selectedVideoApplicantId: id }),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
   updateEmployee: (id, patch) =>

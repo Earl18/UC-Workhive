@@ -2,6 +2,7 @@ import JSZip from "jszip";
 import { NextRequest, NextResponse } from "next/server";
 import { APPLICANT_UPLOAD_REQUIREMENTS } from "@/lib/application-requirements";
 import { submitApplicantApplication } from "@/lib/application-data";
+import { sendTemplatedEmailSafely } from "@/lib/brevo-email";
 import {
   APPLICATION_REQUIREMENT_ALLOWED_MIME_TYPES,
   APPLICATION_REQUIREMENT_MAX_BYTES,
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: `Missing required file: ${requirement.label}` }, { status: 400 });
       }
 
-      if (!requirement.allowMultiple && files.length > 1) {
+      if (!("allowMultiple" in requirement && requirement.allowMultiple) && files.length > 1) {
         return NextResponse.json({ error: `${requirement.label} accepts only one file.` }, { status: 400 });
       }
 
@@ -119,6 +120,14 @@ export async function POST(request: NextRequest) {
       requirementsArchiveName: storage.fileName,
       requirementsArchiveBucket: storage.bucket,
       requirementsArchivePath: storage.objectPath,
+    });
+
+    await sendTemplatedEmailSafely({
+      type: "Job Application Received",
+      to: email,
+      recipientName: fullName,
+      context: { applicantId: applicant.id },
+      eventKey: `application:${applicant.id}:received`,
     });
 
     return NextResponse.json({ applicant });

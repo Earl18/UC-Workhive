@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS "EmailDeliveryRecord" (
+  "key" TEXT NOT NULL PRIMARY KEY,
+  "status" TEXT NOT NULL,
+  "attempts" INTEGER NOT NULL DEFAULT 1,
+  "messageId" TEXT,
+  "sentAt" TIMESTAMP(3),
+  "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

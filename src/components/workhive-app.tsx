@@ -113,7 +113,7 @@ function PersistentHrAttendancePages({ activeView }: { activeView: (typeof PERSI
 }
 
 export function WorkHiveApp() {
-  const { currentUser, view, hydrateSession, setFeatureToggles, setHolidays, featureToggles, setView } = useWorkHive();
+  const { currentUser, view, selectedVideoApplicantId, hydrateSession, setFeatureToggles, setHolidays, featureToggles, setView } = useWorkHive();
   const [authReady, setAuthReady] = useState(false);
   const { data: featureToggleData } = useFeatureToggles();
   const { data: holidayData } = useHolidayRecords();
@@ -223,11 +223,14 @@ export function WorkHiveApp() {
 
   return (
     <AppShell>
-      {isPersistentHrAttendanceView(view) ? (
+      {view === "hr:video-conferencing" ? null : isPersistentHrAttendanceView(view) ? (
         <PersistentHrAttendancePages activeView={view} />
       ) : (
         renderPortalView(view)
       )}
+      {currentUser.role === "hr" && (view === "hr:video-conferencing" || selectedVideoApplicantId) ? (
+        <HrVideoConferencing active={view === "hr:video-conferencing"} />
+      ) : null}
     </AppShell>
   );
 }
@@ -256,7 +259,6 @@ function renderPortalView(view: string) {
     case "hr:applications": return <HrApplications />;
     case "hr:interview-scheduling": return <HrInterviewScheduling />;
     case "hr:interviews": return <HrInterviews />;
-    case "hr:video-conferencing": return <HrVideoConferencing />;
     case "hr:holidays": return <HrHolidays />;
     case "hr:reports": return <HrReports />;
     case "admin:dashboard": return <AdminDashboard />;

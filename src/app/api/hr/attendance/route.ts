@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStaff } from "@/lib/admin-auth";
 import { getHrAttendanceReport, restoreDeletedAttendanceRecord, softDeleteAttendanceRecord, updateAttendanceOvertimeDecision, updateAttendanceRecordTimes } from "@/lib/attendance-data";
+import { db } from "@/lib/db";
+import { sendTemplatedEmailSafely } from "@/lib/brevo-email";
 
 export async function GET(request: NextRequest) {
   const auth = requireStaff(request);
@@ -63,7 +65,23 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ record });
     }
 
+    const previous = body.id ? await db.attendanceLog.findUnique({ where: { id: body.id }, select: { overtimeStatus: true } }) : null;
     const record = await updateAttendanceOvertimeDecision(auth.user, body);
+    try {
+      if (record.employeeId && previous?.overtimeStatus !== record.overtimeStatus) {
+        const employee = await db.employeeRecord.findUnique({ where: { id: record.employeeId }, select: { email: true, firstName: true, lastName: true } });
+        if (employee) await sendTemplatedEmailSafely({
+          type: record.overtimeStatus === "Approved" ? "Overtime Approved" : "Overtime Rejected",
+          to: employee.email,
+          recipientName: `${employee.firstName} ${employee.lastName}`,
+          context: { employeeId: record.employeeId, event: {
+            date: record.date, hours: record.overtimeHrs,
+            reason: body.note?.trim() || record.overtimeDecisionNote || "Please contact HR for details.",
+          } },
+          eventKey: `overtime:${record.id}:${record.overtimeStatus}`,
+        });
+      }
+    } catch (emailError) { console.error("Overtime email preparation failed", emailError); }
     return NextResponse.json({ record });
   } catch (error) {
     return NextResponse.json(

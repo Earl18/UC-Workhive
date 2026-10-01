@@ -127,6 +127,24 @@ model EmailTemplateRecord {
   updatedAt DateTime @updatedAt
 }
 
+model EmailPlaceholderRecord {
+  id        String   @id @default(cuid())
+  label     String   @unique
+  source    String
+  field     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model EmailDeliveryRecord {
+  key       String    @id
+  status    String
+  attempts  Int       @default(1)
+  messageId String?
+  sentAt    DateTime?
+  updatedAt DateTime  @updatedAt
+}
+
 model ApplicantTemplateSetting {
   key           String   @id
   label         String

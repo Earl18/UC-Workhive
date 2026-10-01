@@ -130,11 +130,11 @@ export function DashboardPage() {
     },
     {
       label: "Email Service",
-      value: summary.systemChecks.emailServiceConnected ? "Connected" : "Not configured",
+      value: summary.systemChecks.emailServiceConnected ? "Configured" : "Not configured",
       pct: summary.systemChecks.emailServiceConnected ? 100 : 0,
       icon: Mail,
       healthy: summary.systemChecks.emailServiceConnected,
-      detail: "Supabase recovery email API",
+      detail: "Brevo API · sender from System Settings",
     },
     {
       label: "GPS Geofencing",

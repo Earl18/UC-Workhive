@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useWorkHive } from "@/lib/store";
-import { NotificationItem } from "@/lib/types";
+import { usePortalNotifications } from "@/hooks/use-portal-notifications";
+import { notificationTime, type PortalNotification } from "@/lib/portal-notifications";
+import { useToast } from "@/hooks/use-toast";
 import {
   Card,
   CardContent,
@@ -30,47 +32,41 @@ import {
   CheckCheck,
   BellOff,
   Inbox,
+  Briefcase,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const TYPE_ICON: Record<NotificationItem["type"], React.ReactNode> = {
+const TYPE_ICON: Record<PortalNotification["type"], React.ReactNode> = {
   leave: <Plane className="h-4 w-4" />,
   attendance: <CalendarClock className="h-4 w-4" />,
   interview: <Video className="h-4 w-4" />,
   holiday: <CalendarDays className="h-4 w-4" />,
   system: <Settings className="h-4 w-4" />,
   overtime: <Clock className="h-4 w-4" />,
+  recruitment: <Briefcase className="h-4 w-4" />,
 };
 
-const TYPE_COLOR: Record<NotificationItem["type"], string> = {
+const TYPE_COLOR: Record<PortalNotification["type"], string> = {
   leave: "#1d4ed8",
   attendance: "#0e7490",
   interview: "#7c3aed",
   holiday: "#dc2626",
   system: "#6b7280",
   overtime: "#b45309",
+  recruitment: "#1d4ed8",
 };
 
 export function NotificationsPage() {
-  const {
-    currentUser,
-    notifications,
-    markNotificationRead,
-    markAllNotificationsRead,
-  } = useWorkHive();
+  const { currentUser, setView } = useWorkHive();
+  const { toast } = useToast();
+  const notificationFeed = usePortalNotifications(currentUser?.id);
 
   const [filter, setFilter] = useState<string>("all");
 
   const myNotifications = useMemo(
     () =>
-      notifications
-        .filter(
-          (n) =>
-            n.employeeId === currentUser?.employeeId ||
-            (n.role === "employee" && !n.employeeId)
-        )
-        .sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
-    [notifications, currentUser]
+      [...notificationFeed.notifications].sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
+    [notificationFeed.notifications]
   );
 
   const unreadCount = myNotifications.filter((n) => !n.read).length;
@@ -86,7 +82,9 @@ export function NotificationsPage() {
   );
 
   const handleMarkAll = () => {
-    markAllNotificationsRead("employee", currentUser?.employeeId);
+    void notificationFeed.markAllRead().catch((error) => {
+      toast({ title: "Unable to mark notifications read", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    });
   };
 
   return (
@@ -117,6 +115,7 @@ export function NotificationsPage() {
               <SelectItem value="holiday">Holiday</SelectItem>
               <SelectItem value="overtime">Overtime</SelectItem>
               <SelectItem value="system">System</SelectItem>
+              <SelectItem value="recruitment">Recruitment</SelectItem>
             </SelectContent>
           </Select>
           <Button
@@ -152,11 +151,11 @@ export function NotificationsPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">All Notifications</CardTitle>
           <CardDescription>
-            Click a notification to mark it as read.
+            Click a notification to open the page it came from.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {filtered.length === 0 ? (
+          {notificationFeed.isLoading ? <p className="py-10 text-center text-sm text-muted-foreground">Loading notifications...</p> : notificationFeed.isError ? <p className="py-10 text-center text-sm text-destructive">Unable to load notifications.</p> : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-14 text-center">
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
                 <BellOff className="h-7 w-7" />
@@ -177,7 +176,10 @@ export function NotificationsPage() {
                   key={n.id}
                   n={n}
                   onClick={() => {
-                    if (!n.read) markNotificationRead(n.id);
+                    if (!n.read) void notificationFeed.markRead(n.id).catch((error) => {
+                      toast({ title: "Unable to mark notification read", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+                    });
+                    setView(n.view);
                   }}
                 />
               ))}
@@ -193,7 +195,7 @@ function NotificationRow({
   n,
   onClick,
 }: {
-  n: NotificationItem;
+  n: PortalNotification;
   onClick: () => void;
 }) {
   const color = TYPE_COLOR[n.type];
@@ -229,7 +231,7 @@ function NotificationRow({
                 <span className="h-2 w-2 rounded-full bg-gold" aria-label="Unread" />
               )}
               <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                {n.timestamp}
+                {notificationTime(n.timestamp)}
               </span>
             </div>
           </div>

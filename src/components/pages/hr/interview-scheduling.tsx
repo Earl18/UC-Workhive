@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Applicant, InterviewMode, InterviewSchedule, JobPosting } from "@/lib/types";
 import { HexagonAvatar, HexagonBadge } from "@/components/shared/hexagon";
@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SearchableFilterSelect } from "@/components/shared/filter-controls";
 import { useToast } from "@/hooks/use-toast";
+import { ToastAction } from "@/components/ui/toast";
 import { useHrApplications } from "@/hooks/use-applications";
 import { useStaffJobPostings } from "@/hooks/use-job-postings";
 import { CalendarDays, CalendarPlus, ChevronLeft, ChevronRight, Clock, Loader2, MapPin, Pencil, Users, Video } from "lucide-react";
@@ -24,7 +25,6 @@ import { useWorkHive } from "@/lib/store";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] as const;
-const TODAY_STRING = "2026-07-18";
 const OFFICE_OPEN_TIME = "08:00";
 const LAST_START_TIME = "16:00";
 const OFFICE_CLOSE_TIME = "17:00";
@@ -45,6 +45,7 @@ type InterviewFormState = {
 
 type ParsedSchedule = {
   date: string;
+  status: "Scheduled" | "Done";
   time: string;
   startTime: string;
   endTime: string;
@@ -157,12 +158,12 @@ function rangesOverlap(startA: string, endA: string, startB: string, endB: strin
   return toMinutes(startA) < toMinutes(endB) && toMinutes(startB) < toMinutes(endA);
 }
 
-function hasScheduleWindowForDate(date: string, currentTime: string) {
-  if (date != TODAY_STRING) {
+function hasScheduleWindowForDate(date: string, todayString: string, currentTime: string) {
+  if (date !== todayString) {
     return true;
   }
 
-  return toMinutes(currentTime) <= toMinutes(LAST_START_TIME);
+  return toMinutes(currentTime) < toMinutes(LAST_START_TIME);
 }
 
 function parseSchedule(schedule?: Applicant["schedule"] | null): ParsedSchedule | null {
@@ -179,6 +180,7 @@ function parseSchedule(schedule?: Applicant["schedule"] | null): ParsedSchedule 
 
   return {
     date: legacy.date,
+    status: legacy.status ?? "Scheduled",
     time: formatTimeRange(startTime, endTime),
     startTime,
     endTime,
@@ -197,13 +199,21 @@ function isOwnedByUser(schedule: ParsedSchedule | null, currentUserName: string)
   return schedule.createdBy === currentUserName || schedule.interviewer === currentUserName;
 }
 
+function isInterviewDone(applicant: Applicant) {
+  return applicant.schedule?.status === "Done" || applicant.interviewEvaluation?.status === "submitted";
+}
+
+function isInterviewLocked(applicant: Applicant) {
+  return isInterviewDone(applicant) || Boolean(applicant.interviewEvaluation);
+}
+
 function buildForm(applicant: Applicant, date: string): InterviewFormState {
   const schedule = parseSchedule(applicant.schedule);
   return {
     date,
     startTime: schedule?.date === date ? schedule.startTime : "09:00",
     endTime: schedule?.date === date ? schedule.endTime : "10:00",
-    mode: "Onsite",
+    mode: schedule?.mode ?? "Onsite",
     venueOrLink: schedule?.mode === "Onsite" ? schedule.venueOrLink : "HR Office, Room 201, Main Building",
   };
 }
@@ -245,15 +255,39 @@ export function InterviewSchedulingPage() {
   const [modeFilter, setModeFilter] = useState<string>("All");
   const [interviewerFilter, setInterviewerFilter] = useState<string>("All");
   const [selectedApplicantId, setSelectedApplicantId] = useState<string | null>(null);
-  const [calendarYear, setCalendarYear] = useState(2026);
-  const [calendarMonth, setCalendarMonth] = useState(6);
+  const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date().getMonth());
   const [modal, setModal] = useState<ScheduleModalState>(null);
-  const currentTime = useMemo(() => {
-    const now = new Date();
-    return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  }, []);
+  const [now, setNow] = useState(() => new Date());
+  const lastClockDate = useRef(now);
+  const todayString = toLocalDateString(now);
+  const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  useEffect(() => {
+    function updateClock() {
+      const next = new Date();
+      const previous = lastClockDate.current;
+      if (
+        (previous.getMonth() !== next.getMonth() || previous.getFullYear() !== next.getFullYear())
+        && calendarYear === previous.getFullYear()
+        && calendarMonth === previous.getMonth()
+      ) {
+        setCalendarYear(next.getFullYear());
+        setCalendarMonth(next.getMonth());
+      }
+      lastClockDate.current = next;
+      setNow(next);
+    }
+    const timer = window.setInterval(updateClock, 30_000);
+    window.addEventListener("focus", updateClock);
+    document.addEventListener("visibilitychange", updateClock);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", updateClock);
+      document.removeEventListener("visibilitychange", updateClock);
+    };
+  }, [calendarMonth, calendarYear]);
   const [form, setForm] = useState<InterviewFormState>({
-    date: TODAY_STRING,
+    date: todayString,
     startTime: "09:00",
     endTime: "10:00",
     mode: "Onsite",
@@ -277,6 +311,21 @@ export function InterviewSchedulingPage() {
     [effectiveSelectedApplicantId, interviewApplicants],
   );
 
+  const retryInterviewEmail = async (applicantId: string, type: "Interview Invitation" | "Interview Rescheduled") => {
+    try {
+      const response = await fetch(`/api/hr/applications/${applicantId}/interview-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type }),
+      });
+      const payload = await response.json() as { emailSent?: boolean; error?: string };
+      if (!response.ok || !payload.emailSent) throw new Error(payload.error ?? "Unable to send the interview email.");
+      toast({ title: "Interview email sent", description: "Brevo accepted the message for delivery." });
+    } catch (error) {
+      toast({ title: "Interview email not sent", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+    }
+  };
+
   const scheduleMutation = useMutation({
     mutationFn: async ({ applicantId, schedule }: { applicantId: string; schedule: InterviewSchedule }) => {
       const response = await fetch(`/api/hr/applications/${applicantId}`, {
@@ -284,18 +333,25 @@ export function InterviewSchedulingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ schedule }),
       });
-      const payload = (await response.json()) as { applicant?: Applicant; error?: string };
+      const payload = (await response.json()) as { applicant?: Applicant; emailSent?: boolean; emailError?: string; error?: string };
       if (!response.ok || !payload.applicant) {
         throw new Error(payload.error ?? "Unable to update interview schedule.");
       }
-      return payload.applicant;
+      return { applicant: payload.applicant, emailSent: payload.emailSent === true, emailError: payload.emailError };
     },
-    onSuccess: async (_updatedApplicant, variables) => {
+    onSuccess: async (result, variables) => {
       await queryClient.invalidateQueries({ queryKey: ["hr-applications"] });
       const movedApplicant = interviewApplicants.find((applicant) => applicant.id === variables.applicantId);
+      const emailType = modal?.reschedule ? "Interview Rescheduled" : "Interview Invitation";
       toast({
-        title: modal?.reschedule ? "Interview Rescheduled" : "Interview Scheduled",
-        description: `${applicantDisplayName(movedApplicant ?? modal?.applicant ?? ({ name: "Applicant" } as Applicant))} - ${formatDate(variables.schedule.date)} ${formatTimeRange(variables.schedule.startTime ?? "09:00", variables.schedule.endTime ?? "10:00")}`,
+        title: result.emailSent
+          ? modal?.reschedule ? "Interview rescheduled and email sent" : "Interview scheduled and email sent"
+          : modal?.reschedule ? "Interview rescheduled; email not sent" : "Interview scheduled; email not sent",
+        description: result.emailSent
+          ? `${applicantDisplayName(movedApplicant ?? modal?.applicant ?? ({ name: "Applicant" } as Applicant))} - ${formatDate(variables.schedule.date)} ${formatTimeRange(variables.schedule.startTime ?? "09:00", variables.schedule.endTime ?? "10:00")}`
+          : `The appointment was saved. ${result.emailError ?? "Email delivery failed. Check server logs."}`,
+        variant: result.emailSent ? "default" : "destructive",
+        action: result.emailSent ? undefined : <ToastAction altText="Retry interview email" onClick={() => void retryInterviewEmail(variables.applicantId, emailType)}>Retry email</ToastAction>,
       });
       setModal(null);
     },
@@ -384,6 +440,7 @@ export function InterviewSchedulingPage() {
   }
 
   function openScheduleForDate(applicant: Applicant, date: string) {
+    if (isInterviewLocked(applicant)) return;
     setModal({ applicant, reschedule: Boolean(isOwnedByUser(parseSchedule(applicant.schedule), currentUserName)) });
     setForm(buildForm(applicant, date));
   }
@@ -398,8 +455,10 @@ export function InterviewSchedulingPage() {
       return;
     }
 
+    if (isInterviewLocked(selectedApplicant)) return;
+
     const selectedDate = `${calendarYear}-${String(calendarMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    if (selectedDate < TODAY_STRING || !hasScheduleWindowForDate(selectedDate, currentTime)) {
+    if (selectedDate < todayString || !hasScheduleWindowForDate(selectedDate, todayString, currentTime)) {
       return;
     }
 
@@ -408,7 +467,7 @@ export function InterviewSchedulingPage() {
 
   function openReschedule(applicant: Applicant) {
     const schedule = parseSchedule(applicant.schedule);
-    if (!schedule || !isOwnedByUser(schedule, currentUserName)) {
+    if (!schedule || !isOwnedByUser(schedule, currentUserName) || isInterviewLocked(applicant)) {
       return;
     }
 
@@ -422,7 +481,16 @@ export function InterviewSchedulingPage() {
       return;
     }
 
-    if (form.date < TODAY_STRING) {
+    if (isInterviewLocked(modal.applicant)) {
+      toast({ title: "Rescheduling unavailable", description: "An interview with a saved evaluation cannot be rescheduled.", variant: "destructive" });
+      setModal(null);
+      return;
+    }
+
+    const submitNow = new Date();
+    const submitToday = toLocalDateString(submitNow);
+    const submitTime = `${String(submitNow.getHours()).padStart(2, "0")}:${String(submitNow.getMinutes()).padStart(2, "0")}`;
+    if (form.date < submitToday) {
       toast({ title: "Invalid date", description: "You cannot schedule an interview on a past date.", variant: "destructive" });
       return;
     }
@@ -442,12 +510,12 @@ export function InterviewSchedulingPage() {
       return;
     }
 
-    if (form.date === TODAY_STRING && toMinutes(form.startTime) <= toMinutes(currentTime)) {
-      toast({ title: "Invalid time", description: "On Saturday, July 18, 2026, you cannot schedule an interview that starts in the past.", variant: "destructive" });
+    if (form.date === submitToday && toMinutes(form.startTime) <= toMinutes(submitTime)) {
+      toast({ title: "Invalid time", description: "You cannot schedule an interview that starts in the past.", variant: "destructive" });
       return;
     }
 
-    if (!hasScheduleWindowForDate(form.date, currentTime)) {
+    if (!hasScheduleWindowForDate(form.date, submitToday, submitTime)) {
       toast({ title: "Office closed", description: "No more interview slots are available today after office hours.", variant: "destructive" });
       return;
     }
@@ -480,7 +548,7 @@ export function InterviewSchedulingPage() {
       startTime: form.startTime,
       endTime: form.endTime,
       mode: form.mode,
-      venueOrLink: form.mode === "Online" ? (form.venueOrLink.trim() || "Video Conferencing Room") : form.venueOrLink.trim(),
+      venueOrLink: form.mode === "Online" ? "" : form.venueOrLink.trim(),
       panel: [currentUserName],
       createdBy: currentUserName,
     };
@@ -542,8 +610,8 @@ export function InterviewSchedulingPage() {
                 const date = new Date(calendarYear, calendarMonth, day);
                 const dateStr = toLocalDateString(date);
                 const scheduledCount = countScheduledByDay(day);
-                const disabled = dateStr < TODAY_STRING || !hasScheduleWindowForDate(dateStr, currentTime);
-                const isToday = dateStr === TODAY_STRING;
+                const disabled = dateStr < todayString || !hasScheduleWindowForDate(dateStr, todayString, currentTime) || Boolean(selectedApplicant && isInterviewLocked(selectedApplicant));
+                const isToday = dateStr === todayString;
 
                 return (
                   <button
@@ -563,7 +631,7 @@ export function InterviewSchedulingPage() {
                         {scheduledCount} interview{scheduledCount !== 1 ? "s" : ""}
                       </span>
                     ) : (
-                      <span className="mt-1 text-[10px] text-muted-foreground">{disabled ? (dateStr === TODAY_STRING ? "Office closed" : "Past date") : "Available"}</span>
+                      <span className="mt-1 text-[10px] text-muted-foreground">{disabled ? (dateStr === todayString ? "Office closed" : "Past date") : "Available"}</span>
                     )}
                   </button>
                 );
@@ -614,7 +682,7 @@ export function InterviewSchedulingPage() {
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="text-sm font-semibold text-foreground">{applicantDisplayName(applicant)}</p>
                             {isSelected ? <Badge variant="secondary">Selected</Badge> : null}
-                            {ownSchedule ? <Badge variant="outline">Your Schedule</Badge> : <Badge variant="outline">Awaiting Schedule</Badge>}
+                            {isInterviewDone(applicant) ? <Badge variant="outline">Done</Badge> : applicant.interviewEvaluation?.status === "draft" ? <Badge variant="outline">Draft saved</Badge> : ownSchedule ? <Badge variant="outline">Your Schedule</Badge> : <Badge variant="outline">Awaiting Schedule</Badge>}
                           </div>
                           <p className="truncate text-xs text-muted-foreground">{jobTitleById(jobPostings, applicant.jobId)}</p>
                           <p className="truncate text-xs text-muted-foreground">{jobDepartmentById(jobPostings, applicant.jobId)}</p>
@@ -700,14 +768,13 @@ export function InterviewSchedulingPage() {
                   <TableHead className="align-middle">Schedule</TableHead>
                   <TableHead className="align-middle">Mode</TableHead>
                   <TableHead className="align-middle">Interviewer</TableHead>
-                  <TableHead className="align-middle">Venue</TableHead>
-                  <TableHead className="text-right align-middle">Actions</TableHead>
+                  <TableHead className="text-center align-middle">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {scheduledApplicants.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                       You do not have any scheduled interviews matching the current filter.
                     </TableCell>
                   </TableRow>
@@ -731,9 +798,12 @@ export function InterviewSchedulingPage() {
                         <TableCell className="align-middle">{jobTitleById(jobPostings, applicant.jobId)}</TableCell>
                         <TableCell className="align-middle">{jobDepartmentById(jobPostings, applicant.jobId)}</TableCell>
                         <TableCell className="align-middle">
-                          <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                            {formatDateShort(schedule.date)} - {schedule.time}
-                          </span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="inline-flex rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+                              {formatDateShort(schedule.date)} - {schedule.time}
+                            </span>
+                            {isInterviewDone(applicant) ? <span className="rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-800">Done</span> : applicant.interviewEvaluation?.status === "draft" ? <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-800">Draft saved</span> : null}
+                          </div>
                         </TableCell>
                         <TableCell className="align-middle">
                           <span className="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-700">
@@ -741,9 +811,8 @@ export function InterviewSchedulingPage() {
                           </span>
                         </TableCell>
                         <TableCell className="align-middle">{schedule.interviewer}</TableCell>
-                        <TableCell className="max-w-[220px] align-middle">{schedule.venueOrLink}</TableCell>
-                        <TableCell className="text-right align-middle">
-                          <Button size="sm" variant="outline" onClick={() => openReschedule(applicant)}>
+                        <TableCell className="text-center align-middle">
+                          <Button size="sm" variant="outline" disabled={isInterviewLocked(applicant)} onClick={() => openReschedule(applicant)}>
                             <Pencil className="mr-1.5 h-3.5 w-3.5" /> Reschedule
                           </Button>
                         </TableCell>
@@ -771,14 +840,14 @@ export function InterviewSchedulingPage() {
               <InterviewTimeField
                 label="Start Time"
                 value={form.startTime}
-                minTime={form.date === TODAY_STRING ? (toMinutes(currentTime) > toMinutes(OFFICE_OPEN_TIME) ? currentTime : OFFICE_OPEN_TIME) : OFFICE_OPEN_TIME}
+                minTime={form.date === todayString ? (toMinutes(currentTime) > toMinutes(OFFICE_OPEN_TIME) ? currentTime : OFFICE_OPEN_TIME) : OFFICE_OPEN_TIME}
                 maxTime={LAST_START_TIME}
                 onChange={(value) => setForm((current) => ({ ...current, startTime: value }))}
               />
               <InterviewTimeField
                 label="End Time"
                 value={form.endTime}
-                minTime={form.startTime || (form.date === TODAY_STRING ? currentTime : OFFICE_OPEN_TIME)}
+                minTime={form.startTime || (form.date === todayString ? currentTime : OFFICE_OPEN_TIME)}
                 maxTime={OFFICE_CLOSE_TIME}
                 onChange={(value) => setForm((current) => ({ ...current, endTime: value }))}
               />
@@ -786,9 +855,9 @@ export function InterviewSchedulingPage() {
             <div className="rounded-lg border border-primary/15 bg-primary/5 px-3 py-2 text-xs text-foreground">
               Duration: {formatTimeRange(form.startTime || "09:00", form.endTime || "10:00")}
             </div>
-            {!hasScheduleWindowForDate(form.date, currentTime) ? (
+            {!hasScheduleWindowForDate(form.date, todayString, currentTime) ? (
               <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                Office hours for Saturday, July 18, 2026 are already closed for new interview starts.
+                Office hours for today are already closed for new interview starts.
               </div>
             ) : null}
             <div className="space-y-1.5">
@@ -799,17 +868,22 @@ export function InterviewSchedulingPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Interview Mode</Label>
-              <Select disabled value="Onsite">
-                <SelectTrigger className="h-11 bg-muted/40 text-muted-foreground"><SelectValue /></SelectTrigger>
+              <Select value={form.mode} onValueChange={(value: InterviewMode) => setForm((current) => ({ ...current, mode: value }))}>
+                <SelectTrigger className="h-11 w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Onsite">Onsite</SelectItem>
+                  <SelectItem value="Online">Video conferencing (UC HiveConnect)</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">Online interviews are temporarily unavailable while this feature is under development.</p>
+              {form.mode === "Online" ? <p className="text-xs text-muted-foreground">A private HiveConnect room and guest link will be created when you save. Open it as moderator from your schedule.</p> : null}
             </div>
             <div className="space-y-1.5">
-              <Label>Meeting Link / Room</Label>
-              <Input disabled readOnly className="h-11 bg-muted/40 text-muted-foreground" value="Under development" />
+              <Label>{form.mode === "Online" ? "Meeting Link / Room" : "Venue / Room"}</Label>
+              {form.mode === "Online" ? (
+                <Input disabled readOnly className="h-11 bg-muted/40 text-muted-foreground" value={modal?.applicant.schedule?.mode === "Online" ? modal.applicant.schedule.venueOrLink : "Created when you save"} />
+              ) : (
+                <Input className="h-11" value={form.venueOrLink} onChange={(event) => setForm((current) => ({ ...current, venueOrLink: event.target.value }))} />
+              )}
             </div>
           </div>
 

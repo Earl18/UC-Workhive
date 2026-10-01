@@ -10,6 +10,7 @@ import {
   validatePasswordRequirements,
 } from "@/lib/role-default-passwords";
 import type { Role } from "@/lib/types";
+import { sendTemplatedEmailSafely } from "@/lib/brevo-email";
 
 export async function GET(request: NextRequest) {
   const auth = requireAdmin(request);
@@ -121,6 +122,12 @@ export async function POST(request: NextRequest) {
     action: "Create User",
     category: "System",
     detail: `Provisioned ${created.email} as ${created.role}`,
+  });
+
+  await sendTemplatedEmailSafely({
+    type: "Welcome Email", to: created.email, recipientName: created.name ?? undefined,
+    context: { userId: created.id, employeeId: created.employeeId ?? undefined },
+    eventKey: `user:${created.id}:welcome`,
   });
 
   return NextResponse.json({ user: toSystemUser(created) });

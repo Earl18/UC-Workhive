@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStaff } from "@/lib/admin-auth";
 import { getStaffLeaveDashboard, updateLeaveRequestStageForStaff } from "@/lib/employee-leave";
+import { db } from "@/lib/db";
+import { sendTemplatedEmailSafely } from "@/lib/brevo-email";
 
 export async function GET(request: NextRequest) {
   const auth = requireStaff(request);
@@ -26,6 +28,18 @@ export async function PATCH(request: NextRequest) {
     };
 
     const leaveRequest = await updateLeaveRequestStageForStaff(auth.user, body);
+    try {
+      const employee = await db.employeeRecord.findUnique({ where: { id: leaveRequest.employeeId }, select: { email: true, firstName: true, lastName: true } });
+      if (employee && leaveRequest.overallStatus !== "Pending") {
+        await sendTemplatedEmailSafely({
+          type: leaveRequest.overallStatus === "Approved" ? "Leave Approved" : "Leave Rejected",
+          to: employee.email,
+          recipientName: `${employee.firstName} ${employee.lastName}`,
+          context: { employeeId: leaveRequest.employeeId, leaveId: leaveRequest.id, event: { reason: body.reason?.trim() || leaveRequest.reason } },
+          eventKey: `leave:${leaveRequest.id}:${leaveRequest.overallStatus}`,
+        });
+      }
+    } catch (emailError) { console.error("Leave email preparation failed", emailError); }
     return NextResponse.json({ leaveRequest });
   } catch (error) {
     return NextResponse.json(

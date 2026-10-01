@@ -1,6 +1,23 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+.interview-room-with-score {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 1280px) {
+  .interview-room-with-score {
+    grid-template-columns: minmax(0, 1fr) 420px;
+  }
+}
+
+@media (min-width: 1536px) {
+  .interview-room-with-score {
+    grid-template-columns: minmax(0, 1fr) 500px;
+  }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

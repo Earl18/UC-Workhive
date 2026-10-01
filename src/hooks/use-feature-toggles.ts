@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { AdminDashboardSummary, SystemSettingsApiResponse } from "@/lib/admin-types";
 import type { AuditLogEntry, EmailTemplate, FeatureToggles, SystemUser } from "@/lib/types";
+import type { EmailPlaceholder } from "@/lib/email-placeholder-fields";
 
 type FeatureTogglesResponse = {
   featureToggles: FeatureToggles;
@@ -14,6 +15,7 @@ type AdminUsersResponse = {
 
 type AdminEmailTemplatesResponse = {
   emailTemplates: EmailTemplate[];
+  placeholders: EmailPlaceholder[];
 };
 
 type AdminAuditLogResponse = {

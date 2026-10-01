@@ -108,13 +108,14 @@ export function LoginPage() {
 
     setResettingPassword(true);
     try {
-      await fetch("/api/auth/forgot-password", {
+      const response = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email }),
       });
+      if (!response.ok) throw new Error("Password recovery is unavailable.");
       toast({
         title: "If the account exists, a reset link was sent",
         description: "Check your inbox for the password recovery email.",

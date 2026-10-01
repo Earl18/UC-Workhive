@@ -3,6 +3,7 @@ import { requireStaff } from "@/lib/admin-auth";
 import { createEmployeeMasterRecord, getEmployeeMasterListPage } from "@/lib/hr-data";
 import { logAuditEvent } from "@/lib/admin-data";
 import type { Employee } from "@/lib/types";
+import { sendTemplatedEmailSafely } from "@/lib/brevo-email";
 
 export async function GET(request: NextRequest) {
   const auth = requireStaff(request);
@@ -44,6 +45,14 @@ export async function POST(request: NextRequest) {
       category: "Employee",
       detail: `${employee?.lastName}, ${employee?.firstName} was added to the employee master list`,
     });
+
+    if (employee && body.createAccount !== false) {
+      await sendTemplatedEmailSafely({
+        type: "Welcome Email", to: employee.email,
+        recipientName: `${employee.firstName} ${employee.lastName}`,
+        context: { employeeId: employee.id }, eventKey: `employee:${employee.id}:welcome`,
+      });
+    }
 
     return NextResponse.json({ employee }, { status: 201 });
   } catch (error) {

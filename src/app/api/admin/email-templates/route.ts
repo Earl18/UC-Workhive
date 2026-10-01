@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getEmailTemplates, logAuditEvent } from "@/lib/admin-data";
+import { getEmailPlaceholders } from "@/lib/email-placeholders";
 
 export async function GET(request: NextRequest) {
   const auth = requireAdmin(request);
@@ -10,7 +11,7 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(
-    { emailTemplates: await getEmailTemplates() },
+    { emailTemplates: await getEmailTemplates(), placeholders: await getEmailPlaceholders() },
     { headers: { "Cache-Control": "no-store" } },
   );
 }

@@ -21,6 +21,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { isViewEnabled } from "@/lib/feature-access";
+import { usePortalNotifications } from "@/hooks/use-portal-notifications";
+import { notificationTime, type PortalNotification } from "@/lib/portal-notifications";
+import { useToast } from "@/hooks/use-toast";
 import {
   Bell, Sun, Moon, LogOut, User as UserIcon, Menu, X, Settings, CheckCheck,
   LayoutDashboard, User, CalendarClock, CalendarDays, Briefcase,
@@ -34,9 +37,12 @@ const EXPANDED_SIDEBAR_WIDTH = "w-[256px] sm:w-[280px]";
 const COLLAPSED_SIDEBAR_WIDTH = "w-[72px]";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { currentUser, view, setView, logout, sidebarCollapsed, toggleSidebar, notifications, markAllNotificationsRead, featureToggles } = useWorkHive();
+  const { currentUser, view, setView, logout, sidebarCollapsed, toggleSidebar, setSelectedApplicantId, featureToggles } = useWorkHive();
   const { theme, setTheme } = useTheme();
+  const { toast } = useToast();
+  const notificationFeed = usePortalNotifications(currentUser?.id);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   if (!currentUser) return <>{children}</>;
 
@@ -46,15 +52,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     items: group.items.filter((item) => isViewEnabled(item.view, featureToggles)),
   })).filter((group) => group.items.length > 0);
 
-  const unreadCount = notifications.filter(
-    (n) => !n.read && (n.role === role || (n.employeeId === currentUser.employeeId))
-  ).length;
+  const visibleNotifications = notificationFeed.notifications.filter((item) => isViewEnabled(item.view, featureToggles));
+  const unreadCount = visibleNotifications.filter((item) => !item.read).length;
 
   const pageTitle = getPageTitle(view);
   const navigateToView = (nextView: View) => {
     startTransition(() => {
       setView(nextView);
     });
+  };
+  const openNotification = (item: PortalNotification) => {
+    if (!item.read) {
+      void notificationFeed.markRead(item.id).catch((error) => {
+        toast({ title: "Unable to mark notification read", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+      });
+    }
+    if ((item.view === "hr:applications" || item.view === "hr:interviews") && item.targetId) {
+      setSelectedApplicantId(item.targetId);
+    }
+    setNotificationsOpen(false);
+    navigateToView(item.view);
   };
 
   return (
@@ -96,7 +113,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
-            <Popover>
+            <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
               <PopoverTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative shrink-0" aria-label="Notifications">
                   <Bell className="h-5 w-5" />
@@ -114,29 +131,36 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     variant="ghost"
                     size="sm"
                     className="h-7 text-xs"
-                    onClick={() => markAllNotificationsRead(role, currentUser.employeeId)}
+                    onClick={() => void notificationFeed.markAllRead().catch((error) => {
+                      toast({ title: "Unable to mark notifications read", description: error instanceof Error ? error.message : "Please try again.", variant: "destructive" });
+                    })}
+                    disabled={unreadCount === 0}
                   >
                     <CheckCheck className="mr-1 h-3.5 w-3.5" /> Mark all read
                   </Button>
                 </div>
                 <div className="max-h-[min(24rem,60vh)] overflow-y-auto scroll-thin">
-                  {notifications
-                    .filter((n) => n.role === role || n.employeeId === currentUser.employeeId)
-                    .slice(0, 10)
+                  {notificationFeed.isLoading ? <p className="px-4 py-5 text-sm text-muted-foreground">Loading notifications...</p> : null}
+                  {notificationFeed.isError ? <p className="px-4 py-5 text-sm text-destructive">Unable to load notifications.</p> : null}
+                  {!notificationFeed.isLoading && !notificationFeed.isError && visibleNotifications.length === 0 ? <p className="px-4 py-5 text-sm text-muted-foreground">No notifications yet.</p> : null}
+                  {visibleNotifications
+                    .slice(0, 20)
                     .map((n) => (
-                      <div
+                      <button
+                        type="button"
                         key={n.id}
-                        className={cn("border-b px-4 py-3 last:border-0", !n.read && "bg-primary/5")}
+                        onClick={() => openNotification(n)}
+                        className={cn("w-full border-b px-4 py-3 text-left transition-colors hover:bg-accent/50 last:border-0", !n.read && "bg-primary/5")}
                       >
                         <div className="flex items-start gap-2">
                           <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", n.read ? "bg-muted" : "bg-gold")} />
                           <div className="min-w-0">
                             <p className="text-sm font-medium text-foreground">{n.title}</p>
                             <p className="line-clamp-2 text-xs text-muted-foreground">{n.message}</p>
-                            <p className="mt-1 text-[10px] text-muted-foreground">{n.timestamp}</p>
+                            <p className="mt-1 text-[10px] text-muted-foreground">{notificationTime(n.timestamp)}</p>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     ))}
                 </div>
               </PopoverContent>
@@ -201,6 +225,7 @@ function getPageTitle(view: View): string {
     "public:careers": "Careers",
     "public:job-detail": "Job Detail",
     "public:login": "Sign In",
+    "public:privacy": "Privacy Policy",
     "employee:dashboard": "Dashboard",
     "employee:profile": "My Profile",
     "employee:attendance": "Attendance History",

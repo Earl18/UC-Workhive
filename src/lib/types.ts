@@ -264,6 +264,7 @@ export type InterviewMode = "Onsite" | "Online";
 
 export type InterviewSchedule = {
   date: string;
+  status?: "Scheduled" | "Done";
   time: string;
   startTime?: string;
   endTime?: string;
@@ -271,6 +272,7 @@ export type InterviewSchedule = {
   venueOrLink: string;
   panel: string[];
   createdBy?: string;
+  moderatorUserId?: string;
 };
 
 export type InterviewScore = {
@@ -278,6 +280,18 @@ export type InterviewScore = {
   evaluator: string;
   criteria: Record<string, number>;
   remarks?: string;
+};
+
+export type InterviewEvaluation = {
+  interviewerId: string;
+  interviewerName: string;
+  date: string;
+  criteria: Record<string, { score: number | null; remarks: string }>;
+  overallRemarks: string;
+  status: "draft" | "submitted";
+  totalScore: number | null;
+  recommendation: "Highly Recommended" | "Recommended" | "Recommended with Reservation" | "Not Recommended" | null;
+  updatedAt: string;
 };
 
 export type Applicant = {
@@ -311,6 +325,7 @@ export type Applicant = {
   schedule?: InterviewSchedule;
   scores?: InterviewScore[];
   interviewScore?: InterviewScore;
+  interviewEvaluation?: InterviewEvaluation;
 };
 
 export type SystemUser = {
@@ -324,8 +339,7 @@ export type SystemUser = {
   lastLogin?: string;
 };
 
-export type EmailTemplate = {
-  type:
+export type CoreEmailTemplateType =
     | "Leave Approved"
     | "Leave Rejected"
     | "Job Application Received"
@@ -336,6 +350,11 @@ export type EmailTemplate = {
     | "Upcoming Holiday Reminder"
     | "Welcome Email"
     | "Password Reset";
+
+export type EmailTemplateType = CoreEmailTemplateType | (string & {});
+
+export type EmailTemplate = {
+  type: EmailTemplateType;
   subject: string;
   body: string;
 };
@@ -394,7 +413,7 @@ export type NotificationItem = {
   message: string;
   timestamp: string;
   read: boolean;
-  type: "leave" | "overtime" | "interview" | "holiday" | "system";
+  type: "leave" | "overtime" | "interview" | "holiday" | "attendance" | "recruitment" | "system";
 };
 
 export const APPLICANT_REQUIREMENT_KEYS = [

@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { useWorkHive } from "@/lib/store";
 import { getFallbackViewForRole, isViewEnabled } from "@/lib/feature-access";
 import { AppShell } from "@/components/app-shell";
@@ -117,6 +117,10 @@ export function WorkHiveApp() {
   const [authReady, setAuthReady] = useState(false);
   const { data: featureToggleData } = useFeatureToggles();
   const { data: holidayData } = useHolidayRecords();
+
+  useLayoutEffect(() => {
+    window.scrollTo(0, 0);
+  }, [view]);
 
   useEffect(() => {
     if (featureToggleData?.featureToggles) {

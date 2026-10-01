@@ -177,7 +177,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             </Button>
 
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <button className="flex min-w-0 items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-accent" aria-label="Profile menu">
                   <HexagonAvatar name={currentUser.name} size={32} />

@@ -127,7 +127,7 @@ function daysFromNow(targetDate: string, todayStr: string) {
 export function DashboardPage() {
   const { currentUser, setView } = useWorkHive();
   const notificationFeed = usePortalNotifications(currentUser?.id);
-  const [now, setNow] = useState<Date | null>(null);
+  const [clockTick, setClockTick] = useState<number | null>(null);
 
   const profileQuery = useQuery({
     queryKey: ["employee-profile"],
@@ -175,24 +175,16 @@ export function DashboardPage() {
   });
 
   useEffect(() => {
-    if (typeof timeQuery.data?.nowMs !== "number") {
-      return;
-    }
-
-    setNow(new Date(timeQuery.data.nowMs));
-  }, [timeQuery.data?.nowMs]);
-
-  useEffect(() => {
-    if (!now) {
-      return;
-    }
-
     const timer = window.setInterval(() => {
-      setNow((current) => (current ? new Date(current.getTime() + 1000) : current));
+      setClockTick(Date.now());
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [now]);
+  }, []);
+
+  const now = typeof timeQuery.data?.nowMs === "number"
+    ? new Date(timeQuery.data.nowMs + Math.max(0, (clockTick ?? timeQuery.dataUpdatedAt) - timeQuery.dataUpdatedAt))
+    : null;
 
   const employee = profileQuery.data ?? leaveQuery.data?.employee ?? null;
   const holidays = holidaysQuery.data ?? [];

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Holiday, HolidayType } from "@/lib/types";
@@ -355,7 +355,7 @@ export function HolidaysPage() {
               <Label>Holiday Name</Label>
               <Input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="e.g. UC South Campus Foundation Day" disabled={busy} />
             </div>
-            <HolidayDateField value={form.date} onChange={(value) => setForm((current) => ({ ...current, date: value }))} disabled={busy} />
+            <HolidayDateField key={form.date || "empty"} value={form.date} onChange={(value) => setForm((current) => ({ ...current, date: value }))} disabled={busy} />
             <div className="space-y-1.5">
               <Label>Type</Label>
               <Select value={form.type} onValueChange={(value) => setForm((current) => ({ ...current, type: value as HolidayType }))} disabled={busy}>
@@ -404,12 +404,6 @@ function HolidayDateField({ value, onChange, disabled = false }: { value?: strin
     const currentYear = new Date().getFullYear();
     return Array.from({ length: currentYear - MIN_PICKER_YEAR + 4 }, (_, index) => currentYear + 3 - index);
   }, []);
-
-  useEffect(() => {
-    if (isValidDate && parsedDate) {
-      setDisplayMonth(new Date(parsedDate.getFullYear(), parsedDate.getMonth(), 1));
-    }
-  }, [isValidDate, parsedDate?.getFullYear(), parsedDate?.getMonth()]);
 
   const activeMonthLabel = MONTH_NAMES[displayMonth.getMonth()];
   const activeYear = displayMonth.getFullYear();

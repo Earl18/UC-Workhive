@@ -4,6 +4,9 @@ set -euo pipefail
 release="${1:?Pass the git commit SHA}"
 source_dir="${2:-/opt/workhive/source}"
 export WORKHIVE_RELEASE="$release"
+# Keep Compose ownership stable when each GitHub push uses a new release directory.
+# The first VM deployment was created from /opt/workhive/source (project "source").
+export COMPOSE_PROJECT_NAME=source
 cd "$source_dir"
 test -s /opt/workhive/app.env
 

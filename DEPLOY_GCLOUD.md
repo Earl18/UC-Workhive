@@ -13,6 +13,11 @@ Set these on the Cloud Run service before routing traffic:
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `GOOGLE_MAPS_API_KEY`
 - `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (optional fallback; the deployed app now reads the browser key from the server at runtime)
+- `ESRI_API_KEY` (ArcGIS Location Platform key with Basemaps privilege for Esri World Imagery)
+- `MAPTILER_API_KEY` (MapTiler satellite backup; restrict the key to your app's domains)
+- `MAPTILER_SERVER_API_KEY` (optional separate server-side geocoding key; one MapTiler key also works)
+- `MAP_PROVIDER` (`auto` tries Google, then Esri, then MapTiler; `esri` selects Esri immediately)
+
 - `AUTH_SESSION_SECRET`
 - `AUTH_ALLOWED_EMAIL_DOMAINS`
 - `AUTH_ALLOWED_EMAILS`
@@ -23,6 +28,8 @@ Set these on the Cloud Run service before routing traffic:
 - `BREVO_SENDER_NAME` (optional; defaults to WorkHive HRMS)
 - `WORKHIVE_PUBLIC_URL` (public HTTPS app URL so emails can load the WorkHive logo)
 - `EMAIL_JOBS_SECRET` (random secret for the holiday reminder job)
+
+Create the Esri key in ArcGIS Location Platform with the **Basemaps** privilege. If you restrict its referrers, allow `http://localhost:3000` for local testing and your deployed HTTPS domain. Add the same key as `ESRI_API_KEY` in the local `.env` and Cloud Run configuration. Restart the local server or deploy a new Cloud Run revision after changing environment variables. MapTiler remains the address-search fallback and the imagery fallback if Esri cannot load.
 
 Apply the Prisma migrations before routing traffic, including the email placeholder and delivery tables:
 

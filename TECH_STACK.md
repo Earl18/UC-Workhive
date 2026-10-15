@@ -59,10 +59,9 @@ This document summarizes the technologies currently used in the UC WorkHive syst
 
 ## Maps And Location Features
 
-- Google Maps API
-- Geocoding
-- Address search
-- Static map generation
+- Google Maps API with Esri World Imagery satellite backup and MapTiler as a secondary option for the interactive admin map
+- Google geocoding and address search with MapTiler fallback
+- Google static map endpoint (currently unused by the application)
 - Browser key endpoint for client-side map usage
 - Geofence zone management
 
@@ -111,6 +110,8 @@ The application is configured to integrate with:
 - PostgreSQL
 - Supabase
 - Google Maps Platform
+- ArcGIS Location Platform (Esri World Imagery)
+- MapTiler Cloud (optional backup)
 - Google Cloud Storage
 - Google Cloud Run
 

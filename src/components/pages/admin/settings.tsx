@@ -209,7 +209,7 @@ export function SettingsPage() {
         const payload = (await response.json()) as { results?: AddressSearchResult[]; error?: string };
 
         if (!response.ok) {
-          throw new Error(payload.error ?? "Unable to search Google Maps.");
+          throw new Error(payload.error ?? "Unable to search maps.");
         }
 
         setAddressResults(payload.results ?? []);
@@ -219,7 +219,7 @@ export function SettingsPage() {
         }
 
         setAddressResults([]);
-        setAddressSearchError(searchError instanceof Error ? searchError.message : "Unable to search Google Maps.");
+        setAddressSearchError(searchError instanceof Error ? searchError.message : "Unable to search maps.");
       } finally {
         setAddressSearchLoading(false);
       }
@@ -452,7 +452,7 @@ export function SettingsPage() {
                   {addressSearchLoading && <Loader2 className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-muted-foreground" />}
                 </div>
                 <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  Search here to find a campus or landmark, then pick a Google Maps result to save its formatted address and keep its exact landmark privately for GPS zones.
+                  Search here to find a campus or landmark, then pick a map result to save its formatted address and keep its exact landmark privately for GPS zones.
                 </p>
                 {addressSearchError && (
                   <div className="absolute left-0 right-0 top-full z-30 mt-2 rounded-lg border border-destructive/20 bg-card px-3 py-2 text-[11px] text-destructive shadow-lg">
@@ -461,7 +461,7 @@ export function SettingsPage() {
                 )}
                 {!addressSearchError && hasAddressSearchInput && form.campusAddress.trim().length >= 3 && !addressSearchLoading && addressResults.length === 0 && (
                   <div className="absolute left-0 right-0 top-full z-30 mt-2 rounded-lg border border-border bg-card px-3 py-2 text-[11px] text-muted-foreground shadow-lg">
-                    No Google Maps matches found for this search.
+                    No map matches found for this search.
                   </div>
                 )}
                 {addressResults.length > 0 && (

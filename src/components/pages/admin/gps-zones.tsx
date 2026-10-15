@@ -35,6 +35,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useGeofenceOverview } from "@/hooks/use-geofence-overview";
 import type { GeofenceZone } from "@/lib/types";
+import { SatelliteZoneMap } from "./satellite-zone-map";
 
 const DEFAULT_CENTER = { lat: 10.293, lng: 123.882 };
 const MAP_HEIGHT = 560;
@@ -141,10 +142,11 @@ async function loadGoogleMaps(key: string) {
 
   if (!window.__workhiveGoogleMapsLoader) {
     window.__workhiveGoogleMapsLoader = new Promise((resolve, reject) => {
+      const timeoutId = window.setTimeout(() => reject(new Error("Google Maps did not respond.")), 10000);
       const existing = document.querySelector('script[data-workhive-google-maps="true"]') as HTMLScriptElement | null;
       if (existing) {
-        existing.addEventListener("load", () => resolve(window.google));
-        existing.addEventListener("error", () => reject(new Error("Unable to load Google Maps.")));
+        existing.addEventListener("load", () => { window.clearTimeout(timeoutId); resolve(window.google); });
+        existing.addEventListener("error", () => { window.clearTimeout(timeoutId); reject(new Error("Unable to load Google Maps.")); });
         return;
       }
 
@@ -153,8 +155,8 @@ async function loadGoogleMaps(key: string) {
       script.async = true;
       script.defer = true;
       script.dataset.workhiveGoogleMaps = "true";
-      script.onload = () => resolve(window.google);
-      script.onerror = () => reject(new Error("Unable to load Google Maps."));
+      script.onload = () => { window.clearTimeout(timeoutId); resolve(window.google); };
+      script.onerror = () => { window.clearTimeout(timeoutId); reject(new Error("Unable to load Google Maps.")); };
       document.head.appendChild(script);
     });
   }
@@ -175,6 +177,9 @@ export function GpsZonesPage() {
   const zoneCircleRefs = useRef<Map<string, any>>(new Map());
   const zoneMarkerRefs = useRef<Map<string, any>>(new Map());
   const [browserKey, setBrowserKey] = useState<string | null>(null);
+  const [esriKey, setEsriKey] = useState<string | null>(null);
+  const [mapTilerKey, setMapTilerKey] = useState<string | null>(null);
+  const [mapProvider, setMapProvider] = useState<"google" | "esri" | "maptiler">("google");
   const [browserKeyReady, setBrowserKeyReady] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [inspectorMode, setInspectorMode] = useState<InspectorMode>(null);
@@ -224,6 +229,7 @@ export function GpsZonesPage() {
     label: campusLookup || campusName,
     source: "campus" as const,
   };
+  const satelliteKey = mapProvider === "esri" ? esriKey : mapProvider === "maptiler" ? mapTilerKey : null;
 
   useEffect(() => {
     let active = true;
@@ -233,7 +239,7 @@ export function GpsZonesPage() {
         const response = await fetch("/api/google-maps/browser-key", {
           cache: "no-store",
         });
-        const payload = (await response.json()) as { key?: string | null; error?: string };
+        const payload = (await response.json()) as { key?: string | null; esriKey?: string | null; mapTilerKey?: string | null; provider?: "google" | "esri" | "maptiler"; error?: string };
 
         if (!response.ok) {
           throw new Error(payload.error ?? "Unable to load Google Maps configuration.");
@@ -244,15 +250,23 @@ export function GpsZonesPage() {
         }
 
         const nextKey = payload.key?.trim() || null;
+        const nextEsriKey = payload.esriKey?.trim() || null;
+        const nextMapTilerKey = payload.mapTilerKey?.trim() || null;
         setBrowserKey(nextKey);
+        setEsriKey(nextEsriKey);
+        setMapTilerKey(nextMapTilerKey);
+        setMapProvider(
+          payload.provider === "esri" && nextEsriKey ? "esri"
+            : payload.provider === "maptiler" && nextMapTilerKey ? "maptiler"
+              : nextKey && payload.provider === "google" ? "google"
+                : nextEsriKey ? "esri" : nextMapTilerKey ? "maptiler" : "google",
+        );
         setBrowserKeyReady(true);
 
-        if (!nextKey) {
-          setMapError("Google Maps API key is not configured on the server.");
+        if (!nextKey && !nextEsriKey && !nextMapTilerKey) {
+          setMapError("No Google Maps, Esri, or MapTiler API key is configured on the server.");
         } else {
-          setMapError((current) =>
-            current === "Google Maps API key is not configured on the server." ? null : current,
-          );
+          setMapError(null);
         }
       } catch (loadError) {
         if (!active) {
@@ -336,20 +350,31 @@ export function GpsZonesPage() {
   }, [campusLookup, campusPlaceId, selectedZone]);
 
   useEffect(() => {
-    if (!browserKeyReady || !browserKey || !mapContainerRef.current || mapRef.current) {
+    if (!browserKeyReady || mapProvider !== "google" || !browserKey || !mapContainerRef.current || mapRef.current) {
       return;
     }
 
     let disposed = false;
 
     const initMap = async () => {
+      const fallback = () => {
+        if (!disposed && (esriKey || mapTilerKey)) {
+          mapRef.current = null;
+          setMapReady(false);
+          setMapProvider(esriKey ? "esri" : "maptiler");
+          setMapError(null);
+        } else if (!disposed) {
+          setMapError("Google Maps is unavailable and no backup imagery key is configured.");
+        }
+      };
       try {
+        (window as Window & { gm_authFailure?: () => void }).gm_authFailure = fallback;
         const google = await loadGoogleMaps(browserKey);
         if (disposed || !mapContainerRef.current) {
           return;
         }
 
-        mapRef.current = new google.maps.Map(mapContainerRef.current, {
+        const map = new google.maps.Map(mapContainerRef.current, {
           center: { lat: mapFocus.lat, lng: mapFocus.lng },
           zoom: 19,
           mapTypeId: "hybrid",
@@ -362,10 +387,19 @@ export function GpsZonesPage() {
           },
           gestureHandling: "greedy",
         });
+        mapRef.current = map;
+        let tilesLoaded = false;
+        google.maps.event.addListenerOnce(map, "tilesloaded", () => { tilesLoaded = true; });
+        window.setTimeout(() => { if (!tilesLoaded) fallback(); }, 10000);
         setMapReady(true);
       } catch (loadError) {
         if (!disposed) {
-          setMapError(loadError instanceof Error ? loadError.message : "Unable to render Google Maps.");
+          if (esriKey || mapTilerKey) {
+            setMapProvider(esriKey ? "esri" : "maptiler");
+            setMapError(null);
+          } else {
+            setMapError(loadError instanceof Error ? loadError.message : "Unable to render Google Maps.");
+          }
         }
       }
     };
@@ -376,7 +410,7 @@ export function GpsZonesPage() {
       disposed = true;
       setMapReady(false);
     };
-  }, [browserKey, browserKeyReady, mapFocus.lat, mapFocus.lng]);
+  }, [browserKey, browserKeyReady, esriKey, mapFocus.lat, mapFocus.lng, mapProvider, mapTilerKey]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current || !window.google?.maps) {
@@ -835,7 +869,7 @@ export function GpsZonesPage() {
                 <CardDescription>{campusAddress || "No campus address saved yet."}</CardDescription>
               </div>
               <Badge variant="outline">
-                {mapFocus.source === "current"
+                {mapProvider === "esri" ? "Esri World Imagery" : mapProvider === "maptiler" ? "MapTiler satellite" : mapFocus.source === "current"
                   ? "Current location"
                   : mapFocus.source === "zone"
                     ? "Zone focus"
@@ -874,7 +908,36 @@ export function GpsZonesPage() {
               </div>
             </div>
             <div className="relative workhive-map-shell">
-              <div className="w-full" ref={mapContainerRef} style={{ height: `${MAP_HEIGHT}px` }} />
+              {satelliteKey ? (
+                <SatelliteZoneMap
+                  provider={mapProvider === "esri" ? "esri" : "maptiler"}
+                  apiKey={satelliteKey}
+                  focus={mapFocus}
+                  campusPin={campusPin}
+                  center={center}
+                  zones={zones}
+                  selectedId={activeSelectedId}
+                  inspectorMode={inspectorMode}
+                  draft={createDraft}
+                  onSelectZone={(zone) => {
+                    setInspectorMode("view");
+                    setSelectedId(zone.id);
+                    setEditDraft(buildDraft(zone.lat, zone.lng, zone));
+                    setManualTarget({ lat: zone.lat, lng: zone.lng, label: zone.name, source: "zone" });
+                  }}
+                  onDraftPosition={(lat, lng) => setCreateDraft((current) => ({ ...current, lat: lat.toFixed(6), lng: lng.toFixed(6) }))}
+                  onError={(message) => {
+                    if (mapProvider === "esri" && mapTilerKey) {
+                      setMapProvider("maptiler");
+                      setMapError(null);
+                    } else {
+                      setMapError(message);
+                    }
+                  }}
+                />
+              ) : (
+                <div className="w-full" ref={mapContainerRef} style={{ height: `${MAP_HEIGHT}px` }} />
+              )}
             </div>
             <div className="border-t bg-background/90 px-4 py-3 text-xs text-muted-foreground">
               {inspectorMode === "create"

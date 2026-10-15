@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
+import { esriKey, googleMapsKey, mapTilerKey, preferredMapProvider } from "@/lib/map-provider";
 
 export async function GET() {
-  const key = process.env.GOOGLE_MAPS_API_KEY ?? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
-
   return NextResponse.json(
     {
-      key: key.trim() || null,
+      key: googleMapsKey() || null,
+      esriKey: esriKey() || null,
+      mapTilerKey: mapTilerKey() || null,
+      provider: preferredMapProvider(),
     },
     {
       headers: {

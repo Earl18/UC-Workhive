@@ -485,3 +485,24 @@ export async function saveSubmittedApplicantInterviewEvaluation(input: {
   if (!applicant) throw new Error("Unable to save interview evaluation.");
   return applicant;
 }
+
+export async function clearSubmittedApplicantInterviewEvaluation(applicantId: string) {
+  const row = await getApplicantRowById(applicantId);
+  if (!row) throw new Error("Applicant not found.");
+
+  const parsed = parseStoredApplicantSubmission(row.content);
+  if (!parsed) throw new Error("Applicant record is invalid.");
+  if (parsed.interviewEvaluation?.status === "submitted") throw new Error("A submitted evaluation cannot be cleared.");
+
+  const updated = { ...parsed };
+  delete updated.interviewEvaluation;
+
+  await db.post.update({
+    where: { id: applicantId },
+    data: { content: JSON.stringify(updated) },
+  });
+
+  const applicant = toApplicant({ id: applicantId, content: JSON.stringify(updated) });
+  if (!applicant) throw new Error("Unable to clear interview evaluation.");
+  return applicant;
+}

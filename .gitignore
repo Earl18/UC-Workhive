@@ -5,6 +5,7 @@ node_modules/
 .codex-imports/
 .codex-temp/
 .codex-temp-workhive-zip/
+.tmp-privacy-header/
 outputs/
 .env
 .env.*

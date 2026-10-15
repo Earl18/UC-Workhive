@@ -7,9 +7,13 @@ type HiveConnectConfig = {
   jitsiAppId: string;
   jitsiAppSecret: string;
   jitsiBaseUrl: string;
+  demoMode?: boolean;
 };
 
 export async function getHiveConnectConfig(): Promise<HiveConnectConfig> {
+  if (process.env.HIVECONNECT_DEMO_MODE === "true") {
+    return { jitsiAppId: "", jitsiAppSecret: "", jitsiBaseUrl: "https://meet.jit.si", demoMode: true };
+  }
   const configPath = process.env.HIVECONNECT_CONFIG_PATH || path.resolve(process.cwd(), "..", "UC HiveConnect", "auth", "supabase-jitsi.local.json");
   let stored: Partial<HiveConnectConfig> = {};
   try {
@@ -45,7 +49,8 @@ export function roomFromGuestUrl(config: HiveConnectConfig, value: string) {
     const isWorkHiveRoom = /^workhive-interview-[0-9a-f-]{36}$/.test(room)
       || /^interview-[a-z0-9]{1,12}-[0-9a-f]{10}$/.test(room)
       || /^[a-z]{3}-[a-z]{4}-[a-z]{3}$/.test(room);
-    return url.origin === base.origin && url.search === "" && url.hash === "" && isWorkHiveRoom ? room : null;
+    const legacyLocalRoom = url.origin === "https://localhost:8443";
+    return (url.origin === base.origin || legacyLocalRoom) && url.search === "" && url.hash === "" && isWorkHiveRoom ? room : null;
   } catch {
     return null;
   }

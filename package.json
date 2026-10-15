@@ -4,7 +4,7 @@
     "private": true,
     "scripts": {
         "dev": "next dev -p 3000",
-        "build": "next build && node scripts/prepare-standalone.cjs",
+        "build": "next build --webpack && node scripts/prepare-standalone.cjs",
         "start": "node .next/standalone/server.js",
         "lint": "eslint .",
         "db:push": "prisma db push",

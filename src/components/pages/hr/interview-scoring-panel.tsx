@@ -23,6 +23,11 @@ function ratingsFrom(evaluation?: InterviewEvaluation): Ratings {
   ]));
 }
 
+function reportHasContent(ratings: Ratings, overallRemarks: string) {
+  return Object.values(ratings).some((rating) => rating.score !== null || rating.remarks.trim().length > 0)
+    || overallRemarks.trim().length > 0;
+}
+
 export const InterviewScoringPanel = forwardRef<InterviewScoringPanelHandle, {
   applicant: Applicant;
   position: string;
@@ -44,14 +49,21 @@ export const InterviewScoringPanel = forwardRef<InterviewScoringPanelHandle, {
   const pendingSaveRef = useRef<Promise<boolean> | null>(null);
 
   const ratedCount = INTERVIEW_SCORING_CRITERIA.filter((criterion) => ratings[criterion.key]?.score != null).length;
+  const hasReportContent = reportHasContent(ratings, overallRemarks);
   const totalScore = useMemo(() => ratedCount === INTERVIEW_SCORING_CRITERIA.length
     ? INTERVIEW_SCORING_CRITERIA.reduce((total, criterion) => total + (ratings[criterion.key]?.score ?? 0), 0) * 2
     : null, [ratedCount, ratings]);
 
   function updateRating(key: string, patch: Partial<Rating>) {
-    setRatings((current) => ({ ...current, [key]: { ...current[key], ...patch } }));
-    setDirty(true);
-    onDirtyChange(true);
+    const nextRatings = { ...ratings, [key]: { ...ratings[key], ...patch } };
+    setRatings(nextRatings);
+    const nextDirty = reportHasContent(nextRatings, overallRemarks) || savedStatus !== null;
+    setDirty(nextDirty);
+    onDirtyChange(nextDirty);
+  }
+
+  function toggleRating(key: string, score: number) {
+    updateRating(key, { score: ratings[key]?.score === score ? null : score });
   }
 
   async function performSave(status: InterviewEvaluation["status"]): Promise<boolean> {
@@ -67,12 +79,13 @@ export const InterviewScoringPanel = forwardRef<InterviewScoringPanelHandle, {
 
       queryClient.setQueryData<Applicant[]>(["hr-applications"], (current) =>
         current?.map((item) => item.id === applicant.id ? payload.applicant! : item));
-      setSavedStatus(status);
+      const cleared = status === "draft" && !payload.applicant.interviewEvaluation;
+      setSavedStatus(payload.applicant.interviewEvaluation?.status ?? null);
       setDirty(false);
       onDirtyChange(false);
       toast({
-        title: status === "draft" ? "Evaluation draft saved" : context === "result" ? "Interview report updated" : "Evaluation submitted",
-        description: status === "draft" ? "You can continue rating during the interview." : context === "result" ? "The updated result is saved for review." : "The interview is marked done and the applicant's report is saved.",
+        title: cleared ? "Empty draft cleared" : status === "draft" ? "Evaluation draft saved" : context === "result" ? "Interview report updated" : "Evaluation submitted",
+        description: cleared ? "No ratings or remarks remain in this report." : status === "draft" ? "You can continue rating during the interview." : context === "result" ? "The updated result is saved for review." : "The interview is marked done and the applicant's report is saved.",
       });
       return true;
     } catch (error) {
@@ -128,22 +141,19 @@ export const InterviewScoringPanel = forwardRef<InterviewScoringPanelHandle, {
         <div className="grid grid-cols-5 gap-1.5">
           {INTERVIEW_RATING_LABELS.map((label, ratingIndex) => {
             const value = ratingIndex + 1;
-            return <label key={label} className="cursor-pointer text-center">
-              <input
-                type="radio"
-                name={`${applicant.id}-${criterion.key}`}
-                value={value}
-                checked={ratings[criterion.key]?.score === value}
+            const selected = ratings[criterion.key]?.score === value;
+            return <button
+                key={label}
+                type="button"
+                aria-label={`${criterion.label}: ${value} - ${label}`}
+                aria-pressed={selected}
                 disabled={saving || readOnly}
-                onChange={() => updateRating(criterion.key, { score: value })}
-                className="peer sr-only"
-                aria-label={`${value} - ${label}`}
-              />
-              <span className="flex min-h-16 flex-col items-center rounded-md border px-1 pt-2 text-sm font-medium transition-colors peer-checked:border-primary peer-checked:bg-primary peer-checked:text-primary-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring">
+                onClick={() => toggleRating(criterion.key, value)}
+                className={`flex min-h-16 flex-col items-center rounded-md border px-1 pt-2 text-center text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed ${selected ? "border-primary bg-primary text-primary-foreground" : "bg-card"}`}
+              >
                 <strong className="shrink-0 text-lg leading-6">{value}</strong>
                 <span className="flex min-h-8 items-center justify-center text-center leading-4">{label}</span>
-              </span>
-            </label>;
+              </button>;
           })}
         </div>
         <Textarea
@@ -164,7 +174,12 @@ export const InterviewScoringPanel = forwardRef<InterviewScoringPanelHandle, {
           value={overallRemarks}
           maxLength={3000}
           disabled={saving || readOnly}
-          onChange={(event) => { setOverallRemarks(event.target.value); setDirty(true); onDirtyChange(true); }}
+          onChange={(event) => {
+            setOverallRemarks(event.target.value);
+            const nextDirty = reportHasContent(ratings, event.target.value) || savedStatus !== null;
+            setDirty(nextDirty);
+            onDirtyChange(nextDirty);
+          }}
           className="min-h-24 text-base"
         />
       </div>
@@ -177,12 +192,12 @@ export const InterviewScoringPanel = forwardRef<InterviewScoringPanelHandle, {
       </div>
       <p className="text-sm"><span className="font-semibold">Recommendation:</span> {totalScore === null ? "Pending ratings" : recommendationForScore(totalScore)}</p>
       {!readOnly ? context === "result" ? (
-        <Button disabled={saving || !dirty} onClick={() => void save(savedStatus === "submitted" ? "submitted" : "draft")} className="h-11 w-full text-base">
+        <Button disabled={saving || !dirty || (savedStatus === "submitted" && totalScore === null)} onClick={() => void save(savedStatus === "submitted" ? "submitted" : "draft")} className="h-11 w-full text-base">
           {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null} {savedStatus === "submitted" ? "Save changes" : "Save draft"}
         </Button>
       ) : (
         <div className="flex gap-2">
-          <Button variant="outline" disabled={saving || savedStatus === "submitted"} onClick={() => void save("draft")} className="h-11 flex-1 text-base">Save draft</Button>
+          <Button variant="outline" disabled={saving || savedStatus === "submitted" || (!hasReportContent && savedStatus === null)} onClick={() => void save("draft")} className="h-11 flex-1 text-base">{!hasReportContent && savedStatus === "draft" ? "Clear draft" : "Save draft"}</Button>
           <Button disabled={saving || totalScore === null} onClick={() => setConfirmSubmitOpen(true)} className="h-11 flex-1 text-base">
             {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null} Submit evaluation
           </Button>

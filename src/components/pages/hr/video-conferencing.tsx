@@ -40,6 +40,7 @@ function HiveConnectRoom({ applicantId, compact, onMeetingStarted, onMeetingEnde
   const container = useRef<HTMLDivElement>(null);
   const [message, setMessage] = useState("Connecting to UC HiveConnect...");
   const [error, setError] = useState(false);
+  const [demoUrl, setDemoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let disposed = false;
@@ -48,15 +49,20 @@ function HiveConnectRoom({ applicantId, compact, onMeetingStarted, onMeetingEnde
 
     async function join() {
       setError(false);
+      setDemoUrl(null);
       setMessage("Connecting to UC HiveConnect...");
       try {
         const response = await fetch(`/api/hr/interviews/${encodeURIComponent(applicantId)}/moderator`, { cache: "no-store" });
-        const data = await response.json() as { baseUrl?: string; room?: string; token?: string; error?: string };
-        if (!response.ok || !data.baseUrl || !data.room || !data.token) {
+        const data = await response.json() as { baseUrl?: string; room?: string; token?: string; demoMode?: boolean; error?: string };
+        if (!response.ok || !data.baseUrl || !data.room || (!data.demoMode && !data.token)) {
           throw new Error(data.error || "Unable to open the interview room.");
         }
         if (disposed) return;
         const base = new URL(data.baseUrl);
+        if (data.demoMode) {
+          setDemoUrl(`${base.origin}/${encodeURIComponent(data.room)}`);
+          setMessage("Demo room uses public Jitsi. Sign in to start the meeting; guests can join without an account.");
+        }
         script = document.createElement("script");
         script.src = `${base.origin}/external_api.js`;
         script.async = true;
@@ -70,7 +76,7 @@ function HiveConnectRoom({ applicantId, compact, onMeetingStarted, onMeetingEnde
           }
           api = new Constructor(base.host, {
             roomName: data.room,
-            jwt: data.token,
+            ...(data.token ? { jwt: data.token } : {}),
             parentNode: container.current,
             width: "100%",
             height: "100%",
@@ -78,7 +84,7 @@ function HiveConnectRoom({ applicantId, compact, onMeetingStarted, onMeetingEnde
           api.addListener("participantRoleChanged", (event) => {
             if (event.role === "moderator") {
               api?.executeCommand("toggleLobby", true);
-              setMessage("Moderator connected. Admit guests from the HiveConnect lobby.");
+              setMessage(data.demoMode ? "Moderator connected. Admit guests from the Jitsi lobby." : "Moderator connected. Admit guests from the HiveConnect lobby.");
             }
           });
           api.addListener("videoConferenceJoined", onMeetingStarted);
@@ -109,7 +115,7 @@ function HiveConnectRoom({ applicantId, compact, onMeetingStarted, onMeetingEnde
   }, [applicantId, onMeetingStarted, onMeetingEnded]);
 
   return <div className={`flex h-full flex-col overflow-hidden rounded-xl border bg-card ${compact ? "min-h-0" : "min-h-[540px]"}`}>
-    <div role="status" className={`border-b px-4 py-2 text-sm ${error ? "text-destructive" : "text-muted-foreground"}`}>{message}</div>
+    <div role="status" className={`border-b px-4 py-2 text-sm ${error ? "text-destructive" : "text-muted-foreground"}`}>{message}{demoUrl ? <> <a href={demoUrl} target="_blank" rel="noopener noreferrer" className="font-medium underline">Open meeting in a new tab</a></> : null}</div>
     <div ref={container} className={compact ? "min-h-0 flex-1" : "min-h-[500px] flex-1"} />
   </div>;
 }
@@ -179,19 +185,22 @@ export function VideoConferencingPage({ active = true }: { active?: boolean }) {
     if (active && selected) roomRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [active, selected?.id]);
 
-  async function copyGuestLink(url: string) {
+  async function copyGuestLink(applicantId: string) {
     try {
-      await navigator.clipboard.writeText(url);
+      const response = await fetch(`/api/hr/interviews/${encodeURIComponent(applicantId)}/moderator`, { cache: "no-store" });
+      const data = await response.json() as { baseUrl?: string; room?: string; error?: string };
+      if (!response.ok || !data.baseUrl || !data.room) throw new Error(data.error || "Unable to get the guest link.");
+      await navigator.clipboard.writeText(`${new URL(data.baseUrl).origin}/${encodeURIComponent(data.room)}`);
       toast({ title: "Guest link copied", description: "Share this link with the interview participant." });
-    } catch {
-      toast({ title: "Unable to copy link", description: "Please check clipboard permission and try again.", variant: "destructive" });
+    } catch (error) {
+      toast({ title: "Unable to copy link", description: error instanceof Error ? error.message : "Please check clipboard permission and try again.", variant: "destructive" });
     }
   }
 
   return <div className={active ? "space-y-5" : "fixed bottom-4 right-4 z-50 w-[min(420px,calc(100vw-2rem))] rounded-xl border bg-card p-2 shadow-2xl"}>
     <div className={active ? "" : "hidden"}>
       <h1 className="text-2xl font-bold text-primary">Video Conferencing</h1>
-      <p className="text-sm text-muted-foreground">Open your UC HiveConnect interview room here. Your WorkHive account grants moderator access.</p>
+      <p className="text-sm text-muted-foreground">Open your interview room here. In demo mode, Jitsi asks the interviewer to sign in before guests can join.</p>
     </div>
 
     {active && (applicationsQuery.isLoading || jobPostingsQuery.isLoading) ? <p className="text-sm text-muted-foreground"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Loading interviews...</p> : null}
@@ -247,7 +256,7 @@ export function VideoConferencingPage({ active = true }: { active?: boolean }) {
                   <TableCell><span className="whitespace-nowrap rounded-full bg-primary/10 px-2.5 py-1 text-xs text-primary">{formatDateShort(schedule.date)} - {schedule.time}</span></TableCell>
                   <TableCell>{interviewerFor(applicant)}</TableCell>
                   <TableCell><div className="flex flex-wrap items-center justify-center gap-2">{isDone ? <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-800">Done</span> : <>
-                    <Button size="sm" variant="outline" onClick={() => void copyGuestLink(schedule.venueOrLink)}><Copy className="mr-1.5 h-4 w-4" /> Copy guest link</Button>
+                    <Button size="sm" variant="outline" onClick={() => void copyGuestLink(applicant.id)}><Copy className="mr-1.5 h-4 w-4" /> Copy guest link</Button>
                     <Button size="sm" variant={isOpen ? "outline" : "default"} onClick={() => isOpen ? void closeRoom() : openRoom(applicant.id)}><Video className="mr-1.5 h-4 w-4" />{isOpen ? "Close room" : "Open room"}</Button>
                   </>}</div></TableCell>
                 </TableRow>;

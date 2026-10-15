@@ -1,0 +1,41 @@
+name: Deploy WorkHive to Oracle
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: workhive-oracle-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HOST: 168.107.90.240
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Pack source
+        run: tar --exclude=.git -czf /tmp/workhive-source.tar.gz .
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.WORKHIVE_DEPLOY_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/workhive_deploy
+          chmod 600 ~/.ssh/workhive_deploy
+          printf '%s\n' '168.107.90.240 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEx3/rKrt8k2rRgIk+lxDgSH7NzxpWtfX3yYOLCya6Y8' > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Upload and deploy
+        run: |
+          scp -i ~/.ssh/workhive_deploy /tmp/workhive-source.tar.gz "ubuntu@$HOST:/home/ubuntu/workhive-source.tar.gz"
+          ssh -i ~/.ssh/workhive_deploy "ubuntu@$HOST" \
+            "sudo mkdir -p /opt/workhive/releases/'${GITHUB_SHA}' && sudo tar -xzf /home/ubuntu/workhive-source.tar.gz -C /opt/workhive/releases/'${GITHUB_SHA}' && sudo bash /opt/workhive/releases/'${GITHUB_SHA}'/scripts/deploy-oracle.sh '${GITHUB_SHA}' /opt/workhive/releases/'${GITHUB_SHA}'"

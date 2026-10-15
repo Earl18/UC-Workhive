@@ -23,8 +23,8 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     const config = await getHiveConnectConfig();
     const room = roomFromGuestUrl(config, schedule.venueOrLink);
     if (!room) return NextResponse.json({ error: "The saved HiveConnect room is invalid." }, { status: 400 });
-    const token = mintInterviewModeratorToken(config, room, auth.user);
-    return NextResponse.json({ baseUrl: config.jitsiBaseUrl, room, token }, { headers: { "Cache-Control": "no-store" } });
+    const token = config.demoMode ? undefined : mintInterviewModeratorToken(config, room, auth.user);
+    return NextResponse.json({ baseUrl: config.jitsiBaseUrl, room, token, demoMode: Boolean(config.demoMode) }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to open HiveConnect." }, { status: 500 });
   }

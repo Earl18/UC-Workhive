@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStaff } from "@/lib/admin-auth";
-import { getSubmittedApplicantById, saveSubmittedApplicantInterviewEvaluation } from "@/lib/application-data";
+import { clearSubmittedApplicantInterviewEvaluation, getSubmittedApplicantById, saveSubmittedApplicantInterviewEvaluation } from "@/lib/application-data";
 import { INTERVIEW_SCORING_CRITERIA, recommendationForScore } from "@/lib/interview-scoring";
 import type { InterviewEvaluation } from "@/lib/types";
 
@@ -56,6 +56,13 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     const complete = INTERVIEW_SCORING_CRITERIA.every((criterion) => criteria[criterion.key].score !== null);
     if (body.status === "submitted" && !complete) {
       return NextResponse.json({ error: "Rate all 10 qualifications before submitting the evaluation." }, { status: 400 });
+    }
+    const hasReportContent = INTERVIEW_SCORING_CRITERIA.some((criterion) =>
+      criteria[criterion.key].score !== null || criteria[criterion.key].remarks.length > 0)
+      || body.overallRemarks.trim().length > 0;
+    if (body.status === "draft" && !hasReportContent) {
+      const updated = await clearSubmittedApplicantInterviewEvaluation(id);
+      return NextResponse.json({ applicant: updated }, { headers: { "Cache-Control": "no-store" } });
     }
     const totalScore = complete
       ? INTERVIEW_SCORING_CRITERIA.reduce((total, criterion) => total + (criteria[criterion.key].score ?? 0), 0) * 2

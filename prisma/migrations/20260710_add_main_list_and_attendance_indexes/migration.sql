@@ -1,20 +1,8 @@
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-CREATE INDEX IF NOT EXISTS "EmployeeRecord_sequence_idx"
-  ON "EmployeeRecord" ("sequence");
-
-CREATE INDEX IF NOT EXISTS "EmployeeRecord_department_sequence_idx"
-  ON "EmployeeRecord" ("department", "sequence");
-
-CREATE INDEX IF NOT EXISTS "EmployeeRecord_employmentStatus_sequence_idx"
-  ON "EmployeeRecord" ("employmentStatus", "sequence");
-
-CREATE INDEX IF NOT EXISTS "EmployeeRecord_gender_sequence_idx"
-  ON "EmployeeRecord" ("gender", "sequence");
-
 CREATE INDEX IF NOT EXISTS "EmployeeRecord_master_search_trgm_idx"
   ON "EmployeeRecord"
-  USING GIN ((concat_ws(' ', "lastName", "firstName", "middleName", "department", "position", "email")) gin_trgm_ops);
+  USING GIN (((COALESCE("lastName", '') || ' ' || COALESCE("firstName", '') || ' ' || COALESCE("middleName", '') || ' ' || COALESCE("department", '') || ' ' || COALESCE("position", '') || ' ' || COALESCE("email", ''))) gin_trgm_ops);
 
 CREATE INDEX IF NOT EXISTS "EmployeeRecord_position_normalized_idx"
   ON "EmployeeRecord" ((regexp_replace("position", '\\s*\\([^)]*\\)', '', 'g')));

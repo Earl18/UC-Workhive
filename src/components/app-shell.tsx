@@ -225,6 +225,7 @@ function getPageTitle(view: View): string {
     "public:careers": "Careers",
     "public:job-detail": "Job Detail",
     "public:login": "Sign In",
+    "public:forgot-password": "Forgot Password",
     "public:privacy": "Privacy Policy",
     "employee:dashboard": "Dashboard",
     "employee:profile": "My Profile",

@@ -57,6 +57,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import { useWorkHive } from "@/lib/store";
 import { useSystemSettings } from "@/hooks/use-system-settings";
 import { useAdminUsers } from "@/hooks/use-feature-toggles";
 import { HexagonAvatar } from "@/components/shared/hexagon";
@@ -206,6 +207,14 @@ async function patchAdminUser(payload: UpdatePayload) {
   return readJson<{ user: SystemUser }>(response);
 }
 
+async function resetAdminUserPassword(id: string) {
+  const response = await fetch(`/api/admin/users/${encodeURIComponent(id)}/reset-password`, {
+    method: "POST",
+    credentials: "include",
+  });
+  return readJson<{ user: SystemUser }>(response);
+}
+
 function RoleBadge({ role }: { role: Role }) {
   return (
     <Badge
@@ -249,6 +258,7 @@ function PresenceBadge({ online }: { online: boolean }) {
 export function UsersPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { currentUser, logout } = useWorkHive();
   const { data } = useSystemSettings();
   const { data: usersData, isLoading, error } = useAdminUsers();
   const organizationName = data?.settings?.organizationName ?? "University of Cebu - South Campus";
@@ -269,6 +279,7 @@ export function UsersPage() {
   const [editEmail, setEditEmail] = useState("");
   const [editRole, setEditRole] = useState<Role>("employee");
   const [editDepartment, setEditDepartment] = useState("");
+  const [resetTarget, setResetTarget] = useState<SystemUser | null>(null);
 
   const departmentOptions = useMemo(() => {
     return Array.from(
@@ -404,6 +415,26 @@ export function UsersPage() {
     },
   });
 
+  const resetPasswordMutation = useMutation({
+    mutationFn: resetAdminUserPassword,
+    onSuccess: ({ user }) => {
+      setResetTarget(null);
+      void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
+      toast({
+        title: "Password reset",
+        description: `${user.name} can now sign in with the ${ROLE_LABELS[user.role]} default password.`,
+      });
+      if (currentUser?.id === user.id) void logout();
+    },
+    onError: (mutationError) => {
+      toast({
+        title: "Unable to reset password",
+        description: mutationError instanceof Error ? mutationError.message : "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleInvite = () => {
     if (!inviteName.trim() || !inviteEmail.trim()) {
       toast({ title: "Missing details", description: "Please provide name and email.", variant: "destructive" });
@@ -458,10 +489,6 @@ export function UsersPage() {
 
   const toggleActive = (user: SystemUser, active: boolean) => {
     updateMutation.mutate({ id: user.id, active });
-  };
-
-  const handleResetPassword = (user: SystemUser) => {
-    toast({ title: "Reset Password", description: `Password reset flow for ${user.email} is not connected yet.` });
   };
 
   if (isLoading && !usersData) {
@@ -549,7 +576,7 @@ export function UsersPage() {
         <CardHeader><div className="flex items-center gap-2.5"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><KeyRound className="h-4 w-4" /></div><div><CardTitle>System Users</CardTitle><CardDescription>Assign roles and manage account access using live database records.</CardDescription></div></div></CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-3 lg:flex-row lg:items-center"><div className="relative flex-1"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email, or department..." className="bg-background pl-9" /></div><div className="flex flex-wrap items-center gap-2"><Select value={roleFilter} onValueChange={(v: "all" | Role) => setRoleFilter(v)}><SelectTrigger className="h-9 w-full rounded-full bg-background px-3 sm:w-40"><span className="flex items-center gap-2"><Filter className="h-3.5 w-3.5 text-muted-foreground" /><SelectValue placeholder="Role" /></span></SelectTrigger><SelectContent><SelectItem value="all">All Roles</SelectItem><SelectItem value="employee">Employee</SelectItem><SelectItem value="hr">HR</SelectItem><SelectItem value="admin">Admin</SelectItem></SelectContent></Select><Select value={departmentFilter} onValueChange={setDepartmentFilter}><SelectTrigger className="h-9 w-full rounded-full bg-background px-3 sm:w-52"><SelectValue placeholder="Department" /></SelectTrigger><SelectContent><SelectItem value="all">All Departments</SelectItem>{departmentOptions.map((department) => (<SelectItem key={department} value={department}>{department}</SelectItem>))}</SelectContent></Select><Select value={statusFilter} onValueChange={(v: "all" | "active" | "inactive") => setStatusFilter(v)}><SelectTrigger className="h-9 w-full rounded-full bg-background px-3 sm:w-40"><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="all">All Status</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent></Select><Badge variant="secondary" className="h-9 shrink-0 gap-1.5 rounded-full px-3 tabular-nums"><span className="text-muted-foreground">Showing</span><span className="font-semibold text-foreground">{filtered.length}</span><span className="text-muted-foreground">of {users.length}</span></Badge></div></div>
-          <div className="max-h-[30rem] overflow-y-auto scroll-thin rounded-lg border border-border"><Table><TableHeader className="sticky top-0 z-10 bg-card"><TableRow className="hover:bg-transparent"><TableHead>Name</TableHead><TableHead className="hidden md:table-cell">Email</TableHead><TableHead>Role</TableHead><TableHead>Department</TableHead><TableHead>Status</TableHead><TableHead>Presence</TableHead><TableHead>Last Login</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>{filtered.map((u) => { const rt = relativeTime(u.lastLogin); const fd = formatTs(u.lastLogin); return (<TableRow key={u.id} className="transition-colors hover:bg-primary/5" style={{ borderLeft: `3px solid ${ROLE_COLORS[u.role]}`, borderLeftColor: ROLE_COLORS[u.role] }}><TableCell><div className="flex items-center gap-2.5"><HexagonAvatar name={u.name} color={ROLE_COLORS[u.role]} size={30} /><div className="min-w-0"><p className="truncate text-sm font-medium text-foreground">{u.name}</p><p className="truncate text-xs text-muted-foreground md:hidden">{u.email}</p></div></div></TableCell><TableCell className="hidden text-xs text-muted-foreground md:table-cell">{u.email}</TableCell><TableCell><RoleBadge role={u.role} /></TableCell><TableCell className="text-sm text-foreground">{u.department ? u.department : <span className="text-muted-foreground">-</span>}</TableCell><TableCell><StatusBadge active={u.active} /></TableCell><TableCell><PresenceBadge online={isOnline(u.lastLogin)} /></TableCell><TableCell>{u.lastLogin ? (<div className="flex items-start gap-1.5 text-xs"><Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" /><div className="flex min-w-0 flex-col leading-tight"><span className="font-medium text-foreground">{rt ?? fd}</span>{rt && fd ? <span className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">{fd}</span> : null}</div></div>) : (<span className="text-xs text-muted-foreground">Never</span>)}</TableCell><TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon" className="ml-auto h-8 w-8" aria-label={`Actions for ${u.name}`}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuItem onClick={() => startEdit(u)}><Pencil className="h-4 w-4" />Edit</DropdownMenuItem><DropdownMenuItem onClick={() => void toggleActive(u, !u.active)} disabled={updateMutation.isPending}><Power className="h-4 w-4" />{u.active ? "Deactivate" : "Activate"}</DropdownMenuItem><DropdownMenuItem onClick={() => handleResetPassword(u)}><KeyRound className="h-4 w-4" />Reset Password</DropdownMenuItem><DropdownMenuSeparator /><div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">User ID: {u.id}</div></DropdownMenuContent></DropdownMenu></TableCell></TableRow>); })}{filtered.length === 0 && <TableRow><TableCell colSpan={8} className="py-12 text-center text-sm text-muted-foreground">No users match the current filters.</TableCell></TableRow>}</TableBody></Table></div>
+          <div className="max-h-[30rem] overflow-y-auto scroll-thin rounded-lg border border-border"><Table><TableHeader className="sticky top-0 z-10 bg-card"><TableRow className="hover:bg-transparent"><TableHead>Name</TableHead><TableHead className="hidden md:table-cell">Email</TableHead><TableHead>Role</TableHead><TableHead>Department</TableHead><TableHead>Status</TableHead><TableHead>Presence</TableHead><TableHead>Last Login</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader><TableBody>{filtered.map((u) => { const rt = relativeTime(u.lastLogin); const fd = formatTs(u.lastLogin); return (<TableRow key={u.id} className="transition-colors hover:bg-primary/5" style={{ borderLeft: `3px solid ${ROLE_COLORS[u.role]}`, borderLeftColor: ROLE_COLORS[u.role] }}><TableCell><div className="flex items-center gap-2.5"><HexagonAvatar name={u.name} color={ROLE_COLORS[u.role]} size={30} /><div className="min-w-0"><p className="truncate text-sm font-medium text-foreground">{u.name}</p><p className="truncate text-xs text-muted-foreground md:hidden">{u.email}</p></div></div></TableCell><TableCell className="hidden text-xs text-muted-foreground md:table-cell">{u.email}</TableCell><TableCell><RoleBadge role={u.role} /></TableCell><TableCell className="text-sm text-foreground">{u.department ? u.department : <span className="text-muted-foreground">-</span>}</TableCell><TableCell><StatusBadge active={u.active} /></TableCell><TableCell><PresenceBadge online={isOnline(u.lastLogin)} /></TableCell><TableCell>{u.lastLogin ? (<div className="flex items-start gap-1.5 text-xs"><Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" /><div className="flex min-w-0 flex-col leading-tight"><span className="font-medium text-foreground">{rt ?? fd}</span>{rt && fd ? <span className="mt-0.5 text-[10px] tabular-nums text-muted-foreground">{fd}</span> : null}</div></div>) : (<span className="text-xs text-muted-foreground">Never</span>)}</TableCell><TableCell className="text-right"><DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="ghost" size="icon" className="ml-auto h-8 w-8" aria-label={`Actions for ${u.name}`}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-52"><DropdownMenuItem onClick={() => startEdit(u)}><Pencil className="h-4 w-4" />Edit</DropdownMenuItem><DropdownMenuItem onClick={() => void toggleActive(u, !u.active)} disabled={updateMutation.isPending}><Power className="h-4 w-4" />{u.active ? "Deactivate" : "Activate"}</DropdownMenuItem><DropdownMenuItem onClick={() => setResetTarget(u)} disabled={resetPasswordMutation.isPending}><KeyRound className="h-4 w-4" />Reset Password</DropdownMenuItem><DropdownMenuSeparator /><div className="px-2 py-1 text-[10px] uppercase tracking-wide text-muted-foreground">User ID: {u.id}</div></DropdownMenuContent></DropdownMenu></TableCell></TableRow>); })}{filtered.length === 0 && <TableRow><TableCell colSpan={8} className="py-12 text-center text-sm text-muted-foreground">No users match the current filters.</TableCell></TableRow>}</TableBody></Table></div>
           <p className="text-xs text-muted-foreground">Showing <span className="font-medium text-foreground tabular-nums">{filtered.length}</span> of <span className="font-medium text-foreground tabular-nums">{users.length}</span> users.</p>
         </CardContent>
       </Card>
@@ -571,6 +598,24 @@ export function UsersPage() {
           <DialogFooter>
             <Button variant="outline" onClick={closeEdit}>Cancel</Button>
             <Button onClick={() => void saveEdit()} disabled={updateMutation.isPending}>{updateMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!resetTarget} onOpenChange={(open) => { if (!open && !resetPasswordMutation.isPending) setResetTarget(null); }}>
+        <DialogContent className="sm:max-w-md" showCloseButton={!resetPasswordMutation.isPending}>
+          <DialogHeader>
+            <DialogTitle>Reset password to role default?</DialogTitle>
+            <DialogDescription>
+              {resetTarget?.name} ({resetTarget?.email}) will need the current {resetTarget ? ROLE_LABELS[resetTarget.role] : "role"} default password from System Settings to sign in. Their current password will stop working.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResetTarget(null)} disabled={resetPasswordMutation.isPending}>Cancel</Button>
+            <Button onClick={() => { if (resetTarget) resetPasswordMutation.mutate(resetTarget.id); }} disabled={resetPasswordMutation.isPending}>
+              {resetPasswordMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+              Reset Password
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

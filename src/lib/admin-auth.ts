@@ -13,6 +13,12 @@ export function requireAuthenticated(request: NextRequest):
     };
   }
 
+  if (user.mustChangePassword) {
+    return {
+      response: NextResponse.json({ error: "Set a new password before accessing WorkHive." }, { status: 403 }),
+    };
+  }
+
   return { user };
 }
 

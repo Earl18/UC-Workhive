@@ -71,11 +71,9 @@ function asText(value: unknown): string | undefined {
 }
 
 export async function renderEmailTemplate(type: string, context: EmailRenderContext) {
-  await getEmailTemplates();
-  const template = await db.emailTemplateRecord.findUnique({ where: { type } });
-  if (!template) throw new Error(`Email template "${type}" was not found.`);
-  const definitions = await getEmailPlaceholders();
-  const [employee, user, applicant, leave, holiday, settings] = await Promise.all([
+  const [templates, definitions, employee, user, applicant, leave, holiday, settings] = await Promise.all([
+    getEmailTemplates(),
+    getEmailPlaceholders(),
     context.employeeId ? db.employeeRecord.findUnique({ where: { id: context.employeeId } }) : null,
     context.userId ? db.user.findUnique({ where: { id: context.userId } }) : null,
     context.applicantId ? getSubmittedApplicantById(context.applicantId) : null,
@@ -83,6 +81,8 @@ export async function renderEmailTemplate(type: string, context: EmailRenderCont
     context.holidayId ? db.holidayRecord.findUnique({ where: { id: context.holidayId } }) : null,
     db.systemSettings.findUnique({ where: { id: "default" } }),
   ]);
+  const template = templates.find((entry) => entry.type === type);
+  if (!template) throw new Error(`Email template "${type}" was not found.`);
   const eventValues: Record<string, string | number | undefined> = {
     date: holiday?.date ?? applicant?.schedule?.date ?? leave?.dateFrom,
     time: applicant?.schedule?.time,

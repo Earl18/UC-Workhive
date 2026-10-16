@@ -42,6 +42,7 @@ export type View =
   | "public:privacy"
   | "public:job-detail"
   | "public:login"
+  | "public:forgot-password"
   | "employee:dashboard"
   | "employee:profile"
   | "employee:attendance"

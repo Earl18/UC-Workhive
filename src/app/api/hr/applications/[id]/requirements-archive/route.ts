@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireStaff } from "@/lib/admin-auth";
 import { getSubmittedApplicantById } from "@/lib/application-data";
 import { downloadApplicantRequirementsArchive } from "@/lib/gcs-storage";
+import { downloadApplicantRequirementsArchiveFromR2, isR2ApplicantArchive } from "@/lib/r2-storage";
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = requireStaff(request);
@@ -21,10 +22,15 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
       return NextResponse.json({ error: "Requirements archive is not available for this applicant." }, { status: 404 });
     }
 
-    const archive = await downloadApplicantRequirementsArchive({
-      bucket: applicant.requirementsArchiveBucket,
-      objectPath: applicant.requirementsArchivePath,
-    });
+    const archive = await (isR2ApplicantArchive(applicant.requirementsArchiveBucket)
+      ? downloadApplicantRequirementsArchiveFromR2({
+          bucket: applicant.requirementsArchiveBucket,
+          objectPath: applicant.requirementsArchivePath,
+        })
+      : downloadApplicantRequirementsArchive({
+          bucket: applicant.requirementsArchiveBucket,
+          objectPath: applicant.requirementsArchivePath,
+        }));
 
     return new NextResponse(archive, {
       status: 200,

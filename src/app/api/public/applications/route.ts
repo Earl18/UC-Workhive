@@ -8,7 +8,7 @@ import {
   APPLICATION_REQUIREMENT_MAX_BYTES,
   APPLICATION_REQUIREMENT_MAX_MB,
 } from "@/lib/employee-document-config";
-import { uploadApplicantRequirementsArchive } from "@/lib/gcs-storage";
+import { R2StorageLimitError, uploadApplicantRequirementsArchiveToR2 } from "@/lib/r2-storage";
 
 function sanitizeArchiveName(value: string) {
   return value
@@ -100,8 +100,7 @@ export async function POST(request: NextRequest) {
       compressionOptions: { level: 6 },
     });
 
-    const storage = await uploadApplicantRequirementsArchive({
-      applicantName: fullName,
+    const storage = await uploadApplicantRequirementsArchiveToR2({
       archiveName,
       archiveBuffer,
     });
@@ -132,12 +131,10 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ applicant });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Unable to submit the application right now.";
-    const friendlyMessage =
-      message.includes("Unable to obtain Google Cloud credentials")
-        ? "Google Cloud auth is not ready yet. Run `gcloud auth application-default login` on this machine, or attach a Cloud Run service account with Storage Object Creator access to the bucket."
-        : message;
-
-    return NextResponse.json({ error: friendlyMessage }, { status: 500 });
+    if (error instanceof R2StorageLimitError) {
+      return NextResponse.json({ error: error.message }, { status: 507 });
+    }
+    console.error("Applicant application submission failed", error);
+    return NextResponse.json({ error: "Unable to submit the application right now. Please try again later." }, { status: 500 });
   }
 }

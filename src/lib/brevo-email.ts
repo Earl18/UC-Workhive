@@ -9,6 +9,11 @@ export function isEmailTransportConfigured() {
   return Boolean(process.env.BREVO_API_KEY);
 }
 
+export async function prepareTemplatedEmail(type: string, context: EmailRenderContext) {
+  const [rendered, settings] = await Promise.all([renderEmailTemplate(type, context), getSystemSettings()]);
+  return { rendered, settings };
+}
+
 async function getWebsiteLogoUrl() {
   const configuredUrl = process.env.WORKHIVE_PUBLIC_URL?.trim();
   if (configuredUrl) {
@@ -33,12 +38,23 @@ export async function sendTemplatedEmail(input: {
   recipientName?: string;
   context: EmailRenderContext;
   eventKey?: string;
+  prepared?: Awaited<ReturnType<typeof prepareTemplatedEmail>>;
 }) {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) throw new Error("Brevo is not configured. Set BREVO_API_KEY.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.to)) throw new Error("Recipient email is invalid.");
 
-  const [rendered, settings] = await Promise.all([renderEmailTemplate(input.type, input.context), getSystemSettings()]);
+  const { rendered, settings } = input.prepared ?? await prepareTemplatedEmail(input.type, input.context);
+  const eventResetLink = input.context.event?.resetLink;
+  const resetLink = typeof eventResetLink === "string" ? eventResetLink : undefined;
+  const resetUrl = input.type === "Password Reset" && resetLink ? new URL(resetLink) : null;
+  const localLoopbackLink = resetUrl?.protocol === "http:" && ["localhost", "127.0.0.1"].includes(resetUrl.hostname);
+  if (input.type === "Password Reset" && (!resetUrl || (resetUrl.protocol !== "https:" && !localLoopbackLink))) {
+    throw new Error("Password Reset email requires a secure reset link.");
+  }
+  const body = input.type === "Password Reset" && resetLink && !rendered.body.includes(resetLink)
+    ? `${rendered.body}\n\nReset your password: ${resetLink}`
+    : rendered.body;
   const contactEmail = settings.hrEmail?.trim();
   if (!contactEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) throw new Error("System Settings HR email is not valid for replies.");
   if (rendered.unresolved.length) {
@@ -49,10 +65,11 @@ export async function sendTemplatedEmail(input: {
   const html = renderWorkHiveEmailHtml({
     type: input.type,
     subject: rendered.subject,
-    body: rendered.body,
+    body,
     settings,
     logoUrl,
     senderName,
+    actionUrl: input.type === "Password Reset" ? resetLink : undefined,
   });
 
   const response = await fetch("https://api.brevo.com/v3/smtp/email", {

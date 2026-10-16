@@ -337,6 +337,7 @@ export type SystemUser = {
   department?: string;
   active: boolean;
   lastLogin?: string;
+  mustChangePassword?: boolean;
 };
 
 export type CoreEmailTemplateType =

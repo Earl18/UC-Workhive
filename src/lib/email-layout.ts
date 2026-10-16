@@ -18,12 +18,18 @@ export function renderWorkHiveEmailHtml(input: {
   settings: EmailLayoutSettings;
   logoUrl?: string;
   senderName?: string;
+  actionUrl?: string;
 }) {
   const { type, subject, body, settings } = input;
   const paragraphs = body.split(/\n\s*\n/).map((paragraph) => {
-    const content = paragraph.split(/(https?:\/\/[^\s<>]+)/g).map((part) => part.startsWith("https://") || part.startsWith("http://")
-      ? `<a href="${escapeEmailHtml(part)}" style="color:#284c9a">${escapeEmailHtml(part)}</a>`
-      : escapeEmailHtml(part)).join("").replace(/\n/g, "<br>");
+    const content = paragraph.split(/(https?:\/\/[^\s<>]+)/g).map((part) => {
+      if (input.actionUrl && part === input.actionUrl) {
+        return `<a href="${escapeEmailHtml(part)}" style="display:inline-block;padding:12px 24px;border-radius:7px;background:#173780;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none">Reset Password</a>`;
+      }
+      return part.startsWith("https://") || part.startsWith("http://")
+        ? `<a href="${escapeEmailHtml(part)}" style="color:#284c9a">${escapeEmailHtml(part)}</a>`
+        : escapeEmailHtml(part);
+    }).join("").replace(/\n/g, "<br>");
     return `<p style="margin:0 0 16px;line-height:1.65">${content}</p>`;
   }).join("");
   const logo = input.logoUrl ? `<img src="${escapeEmailHtml(input.logoUrl)}" width="42" height="42" alt="WorkHive logo" style="display:block;width:42px;height:42px;object-fit:contain;border:0">` : "";

@@ -9,7 +9,7 @@ const REMEMBER_ME_TTL_SECONDS = 60 * 60 * 24 * 30;
 export type AuthenticatedPortalUser = Pick<
   SystemUser,
   "id" | "name" | "email" | "role" | "employeeId" | "active" | "lastLogin"
->;
+> & { mustChangePassword: boolean };
 
 type SessionPayload = AuthenticatedPortalUser & {
   exp: number;
@@ -96,6 +96,16 @@ export function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
+const FIRST_LOGIN_EXEMPT_EMAILS = new Set([
+  "earljustinesierra.uc.edu.ph",
+  "earljustinesierra@uc.edu.ph",
+  "earljustinesierra@gmail.com",
+]);
+
+export function mustChangeRolePassword(email: string, passwordSource: string) {
+  return passwordSource === "role_default" && !FIRST_LOGIN_EXEMPT_EMAILS.has(normalizeEmail(email));
+}
+
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function isAllowedEmail(email: string) {
@@ -125,6 +135,7 @@ export async function resolvePortalUserByEmail(
       employeeId: true,
       active: true,
       lastLogin: true,
+      passwordSource: true,
     },
   });
 
@@ -146,6 +157,7 @@ export async function resolvePortalUserByEmail(
     employeeId: user.employeeId ?? undefined,
     active: user.active,
     lastLogin: formatLastLogin(user.lastLogin),
+    mustChangePassword: mustChangeRolePassword(user.email, user.passwordSource),
   };
 }
 
@@ -161,6 +173,7 @@ export async function updateUserLastLogin(id: string) {
       employeeId: true,
       active: true,
       lastLogin: true,
+      passwordSource: true,
     },
   });
 
@@ -178,6 +191,7 @@ export async function updateUserLastLogin(id: string) {
     employeeId: user.employeeId ?? undefined,
     active: user.active,
     lastLogin: formatLastLogin(user.lastLogin),
+    mustChangePassword: mustChangeRolePassword(user.email, user.passwordSource),
   } satisfies AuthenticatedPortalUser;
 }
 
@@ -217,7 +231,7 @@ export function verifySessionToken(
 
   try {
     const payload = JSON.parse(decodeBase64Url(encodedPayload)) as SessionPayload;
-    if (!payload.exp || payload.exp <= Math.floor(Date.now() / 1000)) {
+    if (!payload.exp || payload.exp <= Math.floor(Date.now() / 1000) || typeof payload.mustChangePassword !== "boolean") {
       return null;
     }
 
@@ -229,6 +243,7 @@ export function verifySessionToken(
       employeeId: payload.employeeId,
       active: payload.active,
       lastLogin: payload.lastLogin,
+      mustChangePassword: payload.mustChangePassword,
     };
   } catch {
     return null;

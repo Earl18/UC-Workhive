@@ -53,7 +53,6 @@ export function LoginPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [resettingPassword, setResettingPassword] = useState(false);
 
   const submit = async (e?: FormEvent) => {
     e?.preventDefault();
@@ -93,41 +92,6 @@ export function LoginPage() {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const requestPasswordReset = async () => {
-    if (!email.trim()) {
-      toast({
-        title: "Enter your email first",
-        description: "Provide your email address so we can send a reset link.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setResettingPassword(true);
-    try {
-      const response = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email }),
-      });
-      if (!response.ok) throw new Error("Password recovery is unavailable.");
-      toast({
-        title: "If the account exists, a reset link was sent",
-        description: "Check your inbox for the password recovery email.",
-      });
-    } catch {
-      toast({
-        title: "Reset request unavailable",
-        description: "Please try again in a moment.",
-        variant: "destructive",
-      });
-    } finally {
-      setResettingPassword(false);
     }
   };
 
@@ -376,10 +340,10 @@ export function LoginPage() {
                 <button
                   type="button"
                   className="text-xs font-medium text-primary hover:underline disabled:opacity-60"
-                  onClick={requestPasswordReset}
-                  disabled={resettingPassword || loading}
+                  onClick={() => setView("public:forgot-password")}
+                  disabled={loading}
                 >
-                  {resettingPassword ? "Requesting reset..." : "Forgot password?"}
+                  Forgot password?
                 </button>
               </div>
               <div className="wh-input-wrap relative">
@@ -441,7 +405,7 @@ export function LoginPage() {
                 whileTap={{ scale: 0.98 }}
                 transition={{ type: "spring", stiffness: 400, damping: 17 }}
               >
-                <Button type="submit" size="lg" className="relative w-full overflow-hidden" disabled={loading || resettingPassword}>
+                <Button type="submit" size="lg" className="relative w-full overflow-hidden" disabled={loading}>
                   <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
                   <AnimatePresence mode="wait" initial={false}>
                     {loading ? (

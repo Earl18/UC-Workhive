@@ -38,10 +38,10 @@ const timeline = [
     icon: Sparkles,
   },
   {
-    year: "Sept 2026",
+    year: "October 2026",
     title: "Pilot Rollout",
     description:
-      "Smart attendance, leave management, and the document vault are planned for pilot rollout in September 2026 for the HR Department and the College of Computer Studies.",
+      "Smart attendance, leave management, and the document vault are planned for pilot rollout in October 2026 for the HR Department and the College of Computer Studies.",
     icon: Clock,
   },
   {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AUTH_SESSION_COOKIE, updateUserLastLogin, verifySessionToken } from "@/lib/auth";
+import { AUTH_SESSION_COOKIE, createSessionToken, getSessionCookieOptions, updateUserLastLogin, verifySessionToken } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
   const token = request.cookies.get(AUTH_SESSION_COOKIE)?.value;
@@ -21,6 +21,8 @@ export async function GET(request: NextRequest) {
 
   if (!user && token) {
     response.cookies.delete(AUTH_SESSION_COOKIE);
+  } else if (user && payloadUser && user.mustChangePassword !== payloadUser.mustChangePassword) {
+    response.cookies.set(AUTH_SESSION_COOKIE, createSessionToken(payloadUser, false), getSessionCookieOptions(false));
   }
 
   return response;

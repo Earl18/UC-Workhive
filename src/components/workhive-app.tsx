@@ -5,6 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { useWorkHive } from "@/lib/store";
 import { getFallbackViewForRole, isViewEnabled } from "@/lib/feature-access";
 import { AppShell } from "@/components/app-shell";
+import { FirstLoginModal } from "@/components/first-login-modal";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
 import { useHolidayRecords } from "@/hooks/use-holidays";
 
@@ -15,6 +16,7 @@ import { CareersPage } from "@/components/pages/public/careers";
 import { PrivacyPage } from "@/components/pages/public/privacy";
 import { JobDetailPage } from "@/components/pages/public/job-detail";
 import { LoginPage } from "@/components/pages/public/login";
+import { ForgotPasswordPage } from "@/components/pages/public/forgot-password";
 
 // Employee portal
 import { DashboardPage as EmpDashboard } from "@/components/pages/employee/dashboard";
@@ -118,6 +120,17 @@ export function WorkHiveApp() {
   const { data: featureToggleData } = useFeatureToggles();
   const { data: holidayData } = useHolidayRecords();
 
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const openForgotPassword = url.searchParams.get("forgot-password") === "1";
+    const openSignIn = url.searchParams.get("sign-in") === "1";
+    if (!openForgotPassword && !openSignIn) return;
+    setView(openForgotPassword ? "public:forgot-password" : "public:login");
+    url.searchParams.delete("forgot-password");
+    url.searchParams.delete("sign-in");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, [setView]);
+
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
   }, [view]);
@@ -213,6 +226,10 @@ export function WorkHiveApp() {
     return <div className="min-h-screen bg-background" />;
   }
 
+  if (currentUser?.mustChangePassword) {
+    return <><LoginPage /><FirstLoginModal /></>;
+  }
+
   if (!currentUser) {
     switch (view) {
       case "public:landing": return <LandingPage />;
@@ -221,6 +238,7 @@ export function WorkHiveApp() {
       case "public:privacy": return <PrivacyPage />;
       case "public:job-detail": return <JobDetailPage />;
       case "public:login": return <LoginPage />;
+      case "public:forgot-password": return <ForgotPasswordPage />;
       default: return <LandingPage />;
     }
   }

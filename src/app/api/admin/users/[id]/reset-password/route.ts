@@ -4,13 +4,13 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { logAuditEvent, toSystemUser } from "@/lib/admin-data";
 import { ensureAuthUserWithPassword } from "@/lib/auth-admin";
 import { getDefaultPasswordForRole, getPasswordVersionFieldForRole, PASSWORD_REQUIREMENTS_MESSAGE, validatePasswordRequirements } from "@/lib/role-default-passwords";
+import { isAllowedRequestOrigin } from "@/lib/request-origin";
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = requireAdmin(request);
   if (auth.response) return auth.response;
 
-  const origin = request.headers.get("origin");
-  if (origin && origin !== request.nextUrl.origin) {
+  if (!isAllowedRequestOrigin(request)) {
     return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
   }
 

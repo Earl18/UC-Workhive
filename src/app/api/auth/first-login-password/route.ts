@@ -8,10 +8,10 @@ import {
   verifySessionToken,
 } from "@/lib/auth";
 import { DEFAULT_ROLE_PASSWORDS, getDefaultPasswordForRole, PASSWORD_REQUIREMENTS_MESSAGE, validatePasswordRequirements } from "@/lib/role-default-passwords";
+import { isAllowedRequestOrigin } from "@/lib/request-origin";
 
 export async function POST(request: NextRequest) {
-  const origin = request.headers.get("origin");
-  if (origin && origin !== request.nextUrl.origin) {
+  if (!isAllowedRequestOrigin(request)) {
     return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
   }
 

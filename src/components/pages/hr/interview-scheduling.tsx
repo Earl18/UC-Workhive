@@ -617,10 +617,11 @@ export function InterviewSchedulingPage() {
                   <button
                     key={`day-${day}`}
                     type="button"
+                    aria-label={`${dateStr}: ${scheduledCount} scheduled interviews`}
                     onClick={() => handleCalendarDateClick(day)}
                     disabled={disabled}
                     className={cn(
-                      "relative flex aspect-square flex-col items-start justify-start rounded-lg border bg-card p-2 text-left text-xs transition",
+                      "relative flex min-w-0 aspect-square flex-col items-start justify-start rounded-lg border bg-card p-1 text-left text-xs transition sm:p-2",
                       disabled ? "cursor-not-allowed border-border/60 bg-muted/20 text-muted-foreground opacity-60" : "hover:border-primary/50 hover:bg-primary/5",
                       isToday ? "border-primary ring-1 ring-primary" : "border-border",
                     )}
@@ -628,10 +629,10 @@ export function InterviewSchedulingPage() {
                     <span className={cn("font-semibold", isToday && !disabled && "text-primary")}>{day}</span>
                     {scheduledCount > 0 ? (
                       <span className="mt-1 inline-flex rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
-                        {scheduledCount} interview{scheduledCount !== 1 ? "s" : ""}
+                        {scheduledCount}<span className="hidden sm:inline">&nbsp;interview{scheduledCount !== 1 ? "s" : ""}</span>
                       </span>
                     ) : (
-                      <span className="mt-1 text-[10px] text-muted-foreground">{disabled ? (dateStr === todayString ? "Office closed" : "Past date") : "Available"}</span>
+                      <span className="mt-1 hidden max-w-full truncate text-[10px] text-muted-foreground sm:block">{disabled ? (dateStr === todayString ? "Office closed" : "Past date") : "Available"}</span>
                     )}
                   </button>
                 );

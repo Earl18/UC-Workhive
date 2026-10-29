@@ -513,7 +513,7 @@ export function SettingsPage() {
                 <p className="mt-1 text-[11px] text-muted-foreground">Upload the official UC Application Form here so applicants can download the latest template before submitting their files.</p>
               </div>
               <div className="rounded-xl border border-border bg-muted/20 p-3">
-                <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div className="flex flex-col gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-foreground">UC Application Form</p>
                     <p className="mt-1 text-xs text-muted-foreground">

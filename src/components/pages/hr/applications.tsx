@@ -491,7 +491,7 @@ export function ApplicationsPage() {
                       >
                         Previous
                       </Button>
-                      <div className="min-w-[110px] text-center text-sm text-muted-foreground">Page {currentPage} of {totalPages}</div>
+                      <div className="min-w-[80px] text-center text-sm text-muted-foreground sm:min-w-[110px]">Page {currentPage} of {totalPages}</div>
                       <Button
                         variant="outline"
                         size="sm"

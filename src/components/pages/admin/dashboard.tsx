@@ -157,7 +157,7 @@ export function DashboardPage() {
   return (
     <div className="space-y-6 p-4 md:p-6">
       <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-bold text-foreground">System Dashboard</h1>
           <Badge
             className={
@@ -314,11 +314,11 @@ export function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-2.5 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
               {moduleRegistry.map((m) => (
                 <div
                   key={m.key}
-                  className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2.5"
+                  className="flex min-w-0 items-center justify-between rounded-lg border border-border bg-card px-3 py-2.5"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">{m.label}</p>
@@ -390,7 +390,7 @@ export function DashboardPage() {
             <CardDescription>Role distribution & accounts</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
               <div className="rounded-lg border border-border bg-card p-3 text-center">
                 <p className="text-xl font-bold text-primary">{summary.users.admins}</p>
                 <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Admins</p>

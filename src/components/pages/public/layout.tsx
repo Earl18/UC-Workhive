@@ -33,7 +33,7 @@ export function PublicHeader() {
         <button onClick={() => navigateToTop("public:landing")} className="flex items-center justify-self-start">
           <WorkHiveLogo size={36} />
         </button>
-        <nav className="hidden items-center gap-1 justify-self-center xl:flex">
+        <nav className="hidden items-center gap-1 justify-self-center md:flex">
           {navItems.map((item) => (
             <Button
               key={item.view}
@@ -47,16 +47,16 @@ export function PublicHeader() {
           ))}
         </nav>
         <div className="flex items-center justify-self-end gap-1">
-          <Button size="sm" onClick={() => navigateToTop("public:login")} className="hidden xl:inline-flex">
+          <Button size="sm" onClick={() => navigateToTop("public:login")} className="hidden md:inline-flex">
             Sign In
           </Button>
-          <Button variant="ghost" size="icon" className="xl:hidden" onClick={() => setMobileOpen((value) => !value)} aria-label="Menu">
+          <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setMobileOpen((value) => !value)} aria-label="Menu">
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
         </div>
       </div>
       {mobileOpen && (
-        <div className="border-t border-border bg-card px-4 py-3 xl:hidden">
+        <div className="border-t border-border bg-card px-4 py-3 md:hidden">
           {navItems.map((item) => (
             <Button
               key={item.view}

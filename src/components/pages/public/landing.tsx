@@ -39,7 +39,7 @@ export function LandingPage() {
         {/* Hero */}
         <section className="relative overflow-hidden">
           <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24 lg:py-28">
-            <div className="grid items-start gap-12 xl:grid-cols-[minmax(0,1fr)_minmax(0,480px)] xl:gap-12">
+            <div className="grid items-start gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(520px,0.9fr)] lg:gap-20">
               <div>
                 <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-gold/10 px-3 py-1 text-xs font-medium text-gold">
                   <Hexagon className="h-3 w-3" />
@@ -82,7 +82,7 @@ export function LandingPage() {
               </div>
 
               {/* Hero visual: honeycomb cluster of feature hexagons */}
-              <div className="relative hidden xl:block">
+              <div className="relative hidden lg:block">
                 <HeroHexagonCluster />
               </div>
             </div>

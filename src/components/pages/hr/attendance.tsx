@@ -1058,7 +1058,7 @@ export function AttendancePage() {
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={isAttendanceLoading || (data?.pagination.page ?? 1) <= 1}>Previous</Button>
-                <div className="min-w-[80px] text-center text-sm text-muted-foreground sm:min-w-[110px]">Page {data?.pagination.page ?? 1} of {data?.pagination.totalPages ?? 1}</div>
+                <div className="min-w-[110px] text-center text-sm text-muted-foreground">Page {data?.pagination.page ?? 1} of {data?.pagination.totalPages ?? 1}</div>
                 <Button variant="outline" size="sm" onClick={() => setPage((current) => Math.min(data?.pagination.totalPages ?? current, current + 1))} disabled={isAttendanceLoading || (data?.pagination.page ?? 1) >= (data?.pagination.totalPages ?? 1)}>Next</Button>
               </div>
             </div>

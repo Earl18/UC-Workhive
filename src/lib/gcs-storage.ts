@@ -231,7 +231,7 @@ export async function uploadApplicantRequirementsArchive(input: {
       "Content-Type": "application/zip",
       ...(config.projectId ? { "x-goog-project-id": config.projectId } : {}),
     },
-    body: input.archiveBuffer,
+    body: new Uint8Array(input.archiveBuffer).buffer,
     cache: "no-store",
   });
 

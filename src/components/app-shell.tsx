@@ -35,7 +35,6 @@ import {
 const DESKTOP_SIDEBAR_WIDTH = "2xl:ml-[248px]";
 const DESKTOP_SIDEBAR_COLLAPSED_WIDTH = "2xl:ml-[72px]";
 const EXPANDED_SIDEBAR_WIDTH = "w-[min(248px,calc(100vw-2rem))]";
-const COLLAPSED_SIDEBAR_WIDTH = "w-[72px]";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { currentUser, view, setView, logout, sidebarCollapsed, toggleSidebar, setSelectedApplicantId, featureToggles } = useWorkHive();
@@ -87,29 +86,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         collapsed={sidebarCollapsed && !mobileOpen}
         onToggle={toggleSidebar}
         mobileOpen={mobileOpen}
+        onOpenMobile={() => setMobileOpen(true)}
         onCloseMobile={() => setMobileOpen(false)}
       />
 
       <div
         className={cn(
-          "flex min-w-0 flex-1 flex-col transition-all",
+          "flex min-w-0 flex-1 flex-col transition-[margin-left] duration-500 ease-in-out motion-reduce:transition-none sm:ml-[72px]",
           sidebarCollapsed ? DESKTOP_SIDEBAR_COLLAPSED_WIDTH : DESKTOP_SIDEBAR_WIDTH
         )}
       >
-        <header className="sticky top-0 z-30 flex min-h-16 items-center gap-2 border-b border-border bg-card/80 px-3 backdrop-blur supports-[backdrop-filter]:bg-card/60 sm:gap-3 sm:px-4">
+        <header className="sticky top-0 z-30 flex min-h-16 items-center gap-2 border-b border-border bg-card px-3 sm:gap-3 sm:pl-[76px] sm:pr-4 2xl:pl-4">
           <Button
             variant="ghost"
             size="icon"
-            className="shrink-0 2xl:hidden"
+            className="shrink-0 sm:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <div className="shrink-0 2xl:hidden">
+          <div className={cn("shrink-0 transition-opacity duration-500 motion-reduce:transition-none sm:hidden", mobileOpen && "pointer-events-none opacity-0")}>
             <WorkHiveLogo size={44} showText={false} />
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="hidden min-w-0 flex-1 sm:block">
             <h1 className="truncate text-lg font-bold text-foreground sm:text-xl">{pageTitle}</h1>
           </div>
 
@@ -363,6 +363,7 @@ function Sidebar({
   collapsed,
   onToggle,
   mobileOpen,
+  onOpenMobile,
   onCloseMobile,
 }: {
   navGroups: NavGroup[];
@@ -371,46 +372,68 @@ function Sidebar({
   collapsed: boolean;
   onToggle: () => void;
   mobileOpen: boolean;
+  onOpenMobile: () => void;
   onCloseMobile: () => void;
 }) {
   return (
     <>
-      {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 2xl:hidden" onClick={onCloseMobile} />
-      )}
+      <div
+        aria-hidden="true"
+        className={cn("fixed inset-0 z-40 bg-black/50 transition-opacity duration-500 ease-in-out motion-reduce:transition-none 2xl:hidden", mobileOpen ? "opacity-100" : "pointer-events-none opacity-0")}
+        onClick={onCloseMobile}
+      />
       <aside
         className={cn(
-          "sidebar-honeycomb fixed inset-y-0 left-0 z-50 flex h-dvh min-h-0 flex-col bg-sidebar text-sidebar-foreground transition-all duration-300",
-          collapsed ? COLLAPSED_SIDEBAR_WIDTH : EXPANDED_SIDEBAR_WIDTH,
-          mobileOpen ? "translate-x-0" : "-translate-x-full 2xl:translate-x-0"
+          "sidebar-honeycomb fixed inset-y-0 left-0 z-50 flex h-dvh min-h-0 flex-col bg-sidebar text-sidebar-foreground transition-[width,translate] duration-500 ease-in-out motion-reduce:transition-none",
+          EXPANDED_SIDEBAR_WIDTH,
+          !mobileOpen && "sm:w-[72px] 2xl:w-[248px]",
+          collapsed && !mobileOpen && "2xl:w-[72px]",
+          mobileOpen ? "translate-x-0" : "-translate-x-full sm:translate-x-0"
         )}
       >
-        <div className="logo-strip-pattern flex h-16 items-center justify-between border-b border-sidebar-border bg-sidebar px-3">
-          {collapsed ? (
-            <div className="mx-auto">
-              <WorkHiveLogo size={48} showText={false} />
+        <div className={cn("relative h-16 shrink-0 border-b border-sidebar-border transition-[width] duration-500 ease-in-out motion-reduce:transition-none", EXPANDED_SIDEBAR_WIDTH, mobileOpen ? "sm:w-[248px]" : "sm:w-[72px]", "2xl:w-full")}>
+          <div className={cn("absolute inset-0 hidden items-center transition-opacity duration-500 motion-reduce:transition-none sm:flex 2xl:hidden", mobileOpen ? "pointer-events-none opacity-0" : "opacity-100")}>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="ml-4 shrink-0 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              onClick={onOpenMobile}
+              aria-label="Open menu"
+              aria-expanded={mobileOpen}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+            <div className="ml-7 shrink-0">
+              <WorkHiveLogo size={44} showText={false} />
             </div>
-          ) : (
-            <WorkHiveLogo size={48} light />
-          )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-sidebar-foreground hover:bg-sidebar-accent 2xl:hidden"
-            onClick={onCloseMobile}
-          >
-            <X className="h-5 w-5" />
-          </Button>
+          </div>
+          <div className={cn("absolute inset-0 flex items-center gap-2 px-3 transition-[opacity,translate,scale] duration-500 ease-in-out motion-reduce:transition-none", mobileOpen ? "translate-x-0 scale-100 opacity-100" : "pointer-events-none translate-x-0 scale-100 opacity-100 sm:-translate-x-2 sm:scale-95 sm:opacity-0 2xl:pointer-events-auto 2xl:translate-x-0 2xl:scale-100 2xl:opacity-100")}>
+            <div className="relative h-full min-w-0 flex-1 overflow-hidden">
+              <div className={cn("absolute inset-y-0 left-0 flex items-center transition-opacity duration-500 motion-reduce:transition-none", collapsed ? "opacity-100" : "pointer-events-none opacity-0")}>
+                <WorkHiveLogo size={48} showText={false} />
+              </div>
+              <div className={cn("absolute inset-y-0 left-0 flex items-center transition-opacity duration-500 motion-reduce:transition-none", collapsed ? "pointer-events-none opacity-0" : "opacity-100")}>
+                <WorkHiveLogo size={48} light subtitleClassName="hidden 2xl:block" />
+              </div>
+            </div>
+            {mobileOpen && <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0 bg-white/15 text-white hover:bg-white/25 hover:text-white focus-visible:ring-2 focus-visible:ring-white 2xl:hidden"
+              onClick={onCloseMobile}
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </Button>}
+          </div>
         </div>
 
-        <nav className="min-h-0 flex-1 overflow-y-auto scroll-thin py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        <nav className="hide-scrollbar min-h-0 flex-1 touch-pan-y overflow-y-auto py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {navGroups.map((group) => (
             <div key={group.label} className="mb-3">
-              {!collapsed && (
-                <p className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50">
-                  {group.label}
-                </p>
-              )}
+              <p className={cn("max-h-8 overflow-hidden whitespace-nowrap px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/50 transition-[max-height,opacity,padding] duration-500 motion-reduce:transition-none", !mobileOpen && "sm:max-h-0 sm:py-0 sm:opacity-0 2xl:max-h-8 2xl:py-1.5 2xl:opacity-100", collapsed && "2xl:max-h-0 2xl:py-0 2xl:opacity-0")}>
+                {group.label}
+              </p>
               <ul className="space-y-0.5 px-2">
                 {group.items.map((item) => {
                   const active = view === item.view;
@@ -419,20 +442,22 @@ function Sidebar({
                     <li key={item.view}>
                       <button
                         onClick={() => onNavigate(item.view)}
-                        title={collapsed ? item.label : undefined}
+                        title={collapsed || !mobileOpen ? item.label : undefined}
+                        aria-label={item.label}
                         className={cn(
-                          "group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors",
+                          "group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-[background-color,color,padding] duration-500 motion-reduce:transition-none",
                           active
                             ? "bg-sidebar-accent text-sidebar-accent-foreground"
                             : "text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                          collapsed && "justify-center"
+                          collapsed && "2xl:pl-[19px]",
+                          !collapsed && !mobileOpen && "sm:pl-[19px] 2xl:pl-3"
                         )}
                       >
                         {active && (
                           <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-gold" />
                         )}
                         <Icon className={cn("h-[18px] w-[18px] shrink-0", active && "text-gold")} />
-                        {!collapsed && <span className="truncate">{item.label}</span>}
+                        <span className={cn("min-w-0 max-w-[180px] overflow-hidden whitespace-nowrap opacity-100 transition-[max-width,opacity] duration-500 motion-reduce:transition-none", !mobileOpen && "sm:max-w-0 sm:opacity-0 2xl:max-w-[180px] 2xl:opacity-100", collapsed && "2xl:max-w-0 2xl:opacity-0")}>{item.label}</span>
                       </button>
                     </li>
                   );

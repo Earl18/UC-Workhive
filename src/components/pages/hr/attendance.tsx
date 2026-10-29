@@ -155,6 +155,7 @@ type AttendanceDuplicateMatchRow = {
     afternoonOut: string | null;
     remarks: string;
     validationFlags: string[];
+    matched: boolean;
   };
   existing: {
     id: string;
@@ -1443,7 +1444,7 @@ export function AttendancePage() {
                           <div className="border-t border-amber-200/80 bg-white/90 px-3 py-2">
                             <div
                               ref={duplicateBottomScrollRef}
-                              className="h-3.5 overflow-x-scroll overflow-y-hidden scroll-thin"
+                              className="hide-scrollbar h-3.5 overflow-x-scroll overflow-y-hidden"
                               style={{ scrollbarGutter: "stable" }}
                               onScroll={() => syncDuplicateHorizontalScroll("bottom")}
                             >
@@ -1526,7 +1527,7 @@ export function AttendancePage() {
                         <div className="border-t border-border/70 bg-background/95 px-3 py-2">
                           <div
                             ref={previewBottomScrollRef}
-                            className="h-3.5 overflow-x-scroll overflow-y-hidden scroll-thin"
+                            className="hide-scrollbar h-3.5 overflow-x-scroll overflow-y-hidden"
                             style={{ scrollbarGutter: "stable" }}
                             onScroll={() => syncPreviewHorizontalScroll("bottom")}
                           >

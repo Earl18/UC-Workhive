@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { getAdminUsers, getGeofenceZones, getSystemSettings } from "@/lib/admin-data";
-import type { GeofenceOverviewResponse } from "@/lib/admin-types";
+import type { GeofenceOverviewResponse, GeofenceZone } from "@/lib/admin-types";
 
 const DEFAULT_CENTER = {
   lat: 10.293,
@@ -10,7 +10,15 @@ const DEFAULT_CENTER = {
 const LOCATION_TABLE = "UserLocationStatus";
 const LOCATION_TABLE_CACHE_TTL_MS = 30_000;
 
-let locationTableCache = null;
+let locationTableCache: { checkedAt: number; available: boolean } | null = null;
+
+type LocationRow = {
+  userId: string;
+  lat: number;
+  lng: number;
+  detectedAt: Date | string;
+  lastSyncAt: Date | string;
+};
 
 function formatTimestamp(value) {
   if (!value) {
@@ -44,7 +52,7 @@ async function hasLocationTable() {
   }
 
   try {
-    const rows = await db.$queryRawUnsafe(
+    const rows = await db.$queryRawUnsafe<{ present: boolean }[]>(
       `SELECT EXISTS (
         SELECT 1
         FROM information_schema.tables
@@ -74,8 +82,8 @@ function distanceMeters(latA, lngA, latB, lngB) {
   return 2 * earthRadius * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function findMatchedZone(lat, lng, zones) {
-  let bestMatch = null;
+function findMatchedZone(lat: number, lng: number, zones: GeofenceZone[]) {
+  let bestMatch: GeofenceZone | null = null;
   let bestDistance = Number.POSITIVE_INFINITY;
 
   for (const zone of zones) {
@@ -94,7 +102,7 @@ async function getLocationRows() {
     return [];
   }
 
-  return await db.$queryRawUnsafe(
+  return await db.$queryRawUnsafe<LocationRow[]>(
     `SELECT "userId", "lat", "lng", "detectedAt", "lastSyncAt"
      FROM "UserLocationStatus"
      ORDER BY "detectedAt" DESC`,
@@ -130,7 +138,7 @@ export async function getGeofenceOverview(): Promise<GeofenceOverviewResponse> {
   const accounts = users
     .filter((user) => rowsByUserId.has(user.id))
     .map((user) => {
-      const row = rowsByUserId.get(user.id);
+      const row = rowsByUserId.get(user.id)!;
       const matchedZone = findMatchedZone(row.lat, row.lng, zones);
 
       return {

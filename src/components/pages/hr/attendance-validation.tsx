@@ -86,6 +86,7 @@ type ValidationResponse = {
     position: string;
     date: string;
     day: string;
+    remarks?: string;
     morningIn?: string | null;
     morningOut?: string | null;
     afternoonIn?: string | null;
@@ -944,7 +945,7 @@ export function AttendanceValidationPage() {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading attendance validation records...
               </div>
             ) : (
-            <Table className="w-full table-fixed">
+            <Table className="w-full min-w-[1500px] table-fixed">
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
                   <TableHead className="w-12 text-center">
@@ -1245,7 +1246,7 @@ export function AttendanceValidationPage() {
               ) : null}
 
               <div className="min-h-0 flex-1 overflow-auto rounded-lg border border-border bg-background">
-                <Table className="w-full table-fixed">
+                <Table className="w-full min-w-[1000px] table-fixed">
                   <TableHeader className="sticky top-0 z-10 bg-card">
                     <TableRow>
                       <TableHead className="w-[28%]">Employee</TableHead>

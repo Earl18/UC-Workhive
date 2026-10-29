@@ -313,7 +313,7 @@ export function TardinessPage() {
                     onToggle={() => setExpandedId(expandedId === row.employeeId ? null : row.employeeId)}
                   />
                 ))}
-                {!isTardinessLoading && data.rows.length === 0 && (
+                {!isTardinessLoading && (data?.rows.length ?? 0) === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                       No tardiness records for this filter.

@@ -236,12 +236,13 @@ export function TimeClockPage() {
   }, []);
 
   useEffect(() => {
-    if (typeof timeQuery.data?.nowMs !== "number") {
+    const serverNowMs = timeQuery.data?.nowMs;
+    if (typeof serverNowMs !== "number") {
       return;
     }
 
     const frame = window.requestAnimationFrame(() => {
-      setTimeAnchor({ clientNowMs: Date.now(), serverNowMs: timeQuery.data.nowMs! });
+      setTimeAnchor({ clientNowMs: Date.now(), serverNowMs });
     });
 
     return () => window.cancelAnimationFrame(frame);

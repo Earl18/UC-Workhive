@@ -323,7 +323,7 @@ async function timed<T>(fn: () => Promise<T>) {
     return apiLatencyCache;
   }
 
-  const benchmarks = [
+  const benchmarks: Array<() => Promise<unknown>> = [
     () => getSystemSettings(),
     () => getFeatureToggles(),
     () => db.user.count(),
@@ -687,7 +687,12 @@ export async function getGeofenceZones(): Promise<GeofenceZone[]> {
   }
 
   try {
-    return await db.geofenceZone.findMany({ orderBy: { createdAt: "asc" } });
+    const zones = await db.geofenceZone.findMany({ orderBy: { createdAt: "asc" } });
+    return zones.map((zone) => ({
+      ...zone,
+      createdAt: zone.createdAt.toISOString(),
+      updatedAt: zone.updatedAt.toISOString(),
+    }));
   } catch (error) {
     if (isMissingTableError(error)) {
       adminSchemaCache = { checkedAt: Date.now(), available: false };

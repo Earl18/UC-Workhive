@@ -25,6 +25,7 @@ export async function PATCH(
   if (!body.status || !ALLOWED_STATUSES.includes(body.status)) {
     return NextResponse.json({ error: "Invalid document status." }, { status: 400 });
   }
+  const status = body.status;
 
   const targetDocument = employee.documents.find((document) => document.id === docId);
   if (!targetDocument) {
@@ -33,7 +34,7 @@ export async function PATCH(
 
   const updatedEmployee = await updateEmployeeMasterRecord(id, {
     documents: employee.documents.map((document) => (
-      document.id === docId ? { ...document, status: body.status } : document
+      document.id === docId ? { ...document, status } : document
     )),
   });
 

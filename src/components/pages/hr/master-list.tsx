@@ -194,6 +194,7 @@ async function exportMasterListWorkbook(payload: {
     position?: string;
     gender?: string;
     age?: string;
+    educationLevel?: string;
     sortKey?: string;
     sortDir?: "asc" | "desc";
   };
@@ -963,7 +964,7 @@ export function MasterListPage() {
                       <div className="border-t border-amber-200/80 bg-white/90 px-3 py-2">
                         <div
                           ref={duplicateBottomScrollRef}
-                          className="h-3.5 overflow-x-scroll overflow-y-hidden scroll-thin"
+                          className="hide-scrollbar h-3.5 overflow-x-scroll overflow-y-hidden"
                           style={{ scrollbarGutter: "stable" }}
                           onScroll={() => syncDuplicateHorizontalScroll("bottom")}
                         >

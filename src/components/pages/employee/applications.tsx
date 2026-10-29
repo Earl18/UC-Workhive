@@ -122,6 +122,7 @@ function ApplicationCard({
   const isRejected = stage === "Rejected";
   const isHired = stage === "Hired";
   const stageColor = applicantStageColor(stage);
+  const recommendation = app.interviewScore?.recommendation ?? app.interviewEvaluation?.recommendation;
 
   // Progress is calculated up to the current stage (excluding Rejected)
   const stageIndex = isRejected
@@ -141,7 +142,7 @@ function ApplicationCard({
               {jobTitle}
             </CardTitle>
             <CardDescription>
-              Applied on {formatDate(app.appliedDate)} · Ref #{app.id.toUpperCase()}
+              Applied on {formatDate(app.appliedDate ?? app.submittedAt ?? "")} · Ref #{app.id.toUpperCase()}
             </CardDescription>
           </div>
           <Badge
@@ -169,8 +170,8 @@ function ApplicationCard({
           </div>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <FileText className="h-3.5 w-3.5 text-primary" />{" "}
-            {app.requirements.filter((r) => r.submitted).length}/
-            {app.requirements.length} requirements submitted
+            {(app.requirements ?? []).filter((r) => r.submitted).length}/
+            {app.requirements?.length ?? 0} requirements submitted
           </div>
         </div>
 
@@ -235,18 +236,18 @@ function ApplicationCard({
               </div>
               <div>
                 <span className="text-muted-foreground">Interviewer:</span>{" "}
-                {app.schedule.interviewer}
+                {app.schedule.interviewer ?? app.schedule.panel.join(", ")}
               </div>
               <div className="flex items-center gap-1.5">
-                {app.schedule.platform === "Video Conferencing" ? (
+                {app.schedule.mode === "Online" ? (
                   <Video className="h-3.5 w-3.5 text-primary" />
                 ) : (
                   <MapPin className="h-3.5 w-3.5 text-primary" />
                 )}
-                <span>{app.schedule.platform}</span>
-                {app.schedule.location && (
+                <span>{app.schedule.platform ?? app.schedule.mode}</span>
+                {(app.schedule.location ?? app.schedule.venueOrLink) && (
                   <span className="text-muted-foreground">
-                    · {app.schedule.location}
+                    · {app.schedule.location ?? app.schedule.venueOrLink}
                   </span>
                 )}
               </div>
@@ -266,15 +267,15 @@ function ApplicationCard({
               <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                 <Award className="h-4 w-4 text-gold" /> Interview Result
               </p>
-              <Badge
+              {recommendation && <Badge
                 variant="outline"
                 style={{
-                  color: recommendationColor(app.interviewScore.recommendation),
-                  borderColor: recommendationColor(app.interviewScore.recommendation),
+                  color: recommendationColor(recommendation),
+                  borderColor: recommendationColor(recommendation),
                 }}
               >
-                {app.interviewScore.recommendation}
-              </Badge>
+                {recommendation}
+              </Badge>}
             </div>
             <Separator className="my-3" />
             <div className="grid gap-3 sm:grid-cols-3">
@@ -283,7 +284,7 @@ function ApplicationCard({
                   Total Score
                 </p>
                 <p className="font-mono text-2xl font-bold text-primary">
-                  {app.interviewScore.totalScore}
+                  {app.interviewScore.totalScore ?? app.interviewEvaluation?.totalScore ?? "—"}
                   <span className="text-sm text-muted-foreground">/100</span>
                 </p>
               </div>
@@ -292,7 +293,7 @@ function ApplicationCard({
                   Interviewer
                 </p>
                 <p className="text-sm font-medium text-foreground">
-                  {app.interviewScore.interviewer}
+                  {app.interviewScore.interviewer ?? app.interviewScore.evaluator}
                 </p>
               </div>
               <div>
@@ -300,7 +301,7 @@ function ApplicationCard({
                   Date Interviewed
                 </p>
                 <p className="text-sm font-medium text-foreground">
-                  {formatDate(app.interviewScore.date)}
+                  {formatDate(app.interviewScore.date ?? app.interviewEvaluation?.date ?? "")}
                 </p>
               </div>
             </div>

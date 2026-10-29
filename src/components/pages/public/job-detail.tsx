@@ -342,6 +342,8 @@ export function JobDetailPage() {
                           {APPLICANT_UPLOAD_REQUIREMENTS.map((requirement, index) => {
                             const files = uploadedRequirements[requirement.key] ?? [];
                             const inputId = `upload-${requirement.key}`;
+                            const allowMultiple = "allowMultiple" in requirement && requirement.allowMultiple;
+                            const hasTemplate = "templateKey" in requirement && Boolean(requirement.templateKey);
 
                             return (
                               <div key={requirement.key} className="rounded-lg border border-border/60 bg-muted/20 p-3">
@@ -352,7 +354,7 @@ export function JobDetailPage() {
                                       <span>{requirement.label}</span>
                                     </div>
                                     {requirement.key === "application-letter" ? <p className="mt-1 text-sm font-medium text-muted-foreground">See full text on job profile.</p> : null}
-                                    {requirement.templateKey && applicantTemplate?.storagePath ? (
+                                    {hasTemplate && applicantTemplate?.storagePath ? (
                                       <a href="/api/public/applicant-template/download" target="_blank" rel="noreferrer" className="mt-1 inline-flex text-sm font-medium text-primary hover:text-primary/80 hover:underline">Download template</a>
                                     ) : null}
 
@@ -361,12 +363,12 @@ export function JobDetailPage() {
                                         ? files.length === 1
                                           ? `Selected: ${files[0].name}`
                                           : `Selected: ${files.length} files`
-                                        : `${requirement.allowMultiple ? "Upload one or more files." : "Upload one file."} Accepted formats: PDF, JPG, JPEG, PNG up to ${APPLICATION_REQUIREMENT_MAX_MB} MB each`}
+                                        : `${allowMultiple ? "Upload one or more files." : "Upload one file."} Accepted formats: PDF, JPG, JPEG, PNG up to ${APPLICATION_REQUIREMENT_MAX_MB} MB each`}
                                     </p>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     {files.length > 0 ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Upload className="h-4 w-4 text-muted-foreground" />}
-                                    <Input id={inputId} type="file" multiple={Boolean(requirement.allowMultiple)} accept={APPLICATION_REQUIREMENT_ACCEPT} onChange={(event) => handleRequirementUpload(requirement.key, event.target.files)} className="max-w-xs" />
+                                    <Input id={inputId} type="file" multiple={allowMultiple} accept={APPLICATION_REQUIREMENT_ACCEPT} onChange={(event) => handleRequirementUpload(requirement.key, event.target.files)} className="max-w-xs" />
                                   </div>
                                 </div>
                               </div>

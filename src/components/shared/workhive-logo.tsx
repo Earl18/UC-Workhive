@@ -6,10 +6,12 @@ export function WorkHiveLogo({
   size = 56,
   showText = true,
   light = false,
+  subtitleClassName = "",
 }: {
   size?: number;
   showText?: boolean;
   light?: boolean;
+  subtitleClassName?: string;
 }) {
   const titleSize = Math.max(16, size * 0.52);
   const subtitleSize = Math.max(10, size * 0.17);
@@ -38,7 +40,7 @@ export function WorkHiveLogo({
             Work<span className="text-gold">Hive</span>
           </div>
           <div
-            className={`whitespace-nowrap font-medium uppercase ${light ? "text-white/70" : "text-muted-foreground"}`}
+            className={`whitespace-nowrap font-medium uppercase ${light ? "text-white/70" : "text-muted-foreground"} ${subtitleClassName}`}
             style={{ fontSize: subtitleSize, letterSpacing: "0.2em" }}
           >
             UC South Campus - HRMS

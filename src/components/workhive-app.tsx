@@ -79,6 +79,112 @@ const PERSISTENT_HR_ATTENDANCE_VIEWS = [
 
 const persistentHrAttendanceViewCache: Array<(typeof PERSISTENT_HR_ATTENDANCE_VIEWS)[number]> = [];
 
+function useTableSwipeProtection() {
+  useEffect(() => {
+    type Gesture = {
+      table: HTMLTableElement;
+      x: number;
+      y: number;
+      lastX: number;
+      horizontal: boolean;
+      scrollArea: HTMLElement | null;
+    };
+    let touchGesture: Gesture | null = null;
+    let mouseGesture: Gesture | null = null;
+    let blockedClick: { table: HTMLTableElement; until: number } | null = null;
+
+    const tableAt = (target: EventTarget | null) =>
+      target instanceof Element ? target.closest<HTMLTableElement>("table") : null;
+    const horizontalScrollArea = (table: HTMLTableElement) => {
+      let parent = table.parentElement;
+      while (parent) {
+        const overflow = getComputedStyle(parent).overflowX;
+        if (parent.scrollWidth > parent.clientWidth + 1 && (overflow === "auto" || overflow === "scroll")) {
+          return parent;
+        }
+        parent = parent.parentElement;
+      }
+      return null;
+    };
+    const start = (table: HTMLTableElement, x: number, y: number): Gesture => ({
+      table, x, y, lastX: x, horizontal: false, scrollArea: horizontalScrollArea(table),
+    });
+    const movedHorizontally = (gesture: Gesture, x: number, y: number) => {
+      const dx = Math.abs(x - gesture.x);
+      const dy = Math.abs(y - gesture.y);
+      if (dx > 10 && dx > dy * 1.2) gesture.horizontal = true;
+    };
+    const finish = (gesture: Gesture | null) => {
+      if (gesture?.horizontal) {
+        blockedClick = { table: gesture.table, until: performance.now() + 800 };
+      }
+    };
+
+    const onTouchStart = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      const table = tableAt(event.target);
+      blockedClick = null;
+      touchGesture = touch && table ? start(table, touch.clientX, touch.clientY) : null;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (touchGesture && touch) movedHorizontally(touchGesture, touch.clientX, touch.clientY);
+    };
+    const onTouchEnd = () => {
+      finish(touchGesture);
+      touchGesture = null;
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.pointerType !== "mouse" || event.button !== 0) return;
+      const table = tableAt(event.target);
+      blockedClick = null;
+      mouseGesture = table ? start(table, event.clientX, event.clientY) : null;
+    };
+    const onPointerMove = (event: PointerEvent) => {
+      if (!mouseGesture || (event.buttons & 1) === 0) return;
+      movedHorizontally(mouseGesture, event.clientX, event.clientY);
+      if (mouseGesture.horizontal && mouseGesture.scrollArea) {
+        event.preventDefault();
+        mouseGesture.scrollArea.scrollLeft -= event.clientX - mouseGesture.lastX;
+        window.getSelection()?.removeAllRanges();
+      }
+      mouseGesture.lastX = event.clientX;
+    };
+    const onPointerUp = () => {
+      finish(mouseGesture);
+      mouseGesture = null;
+    };
+    const onClick = (event: MouseEvent) => {
+      if (blockedClick && performance.now() < blockedClick.until && tableAt(event.target) === blockedClick.table) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+      blockedClick = null;
+    };
+
+    document.addEventListener("touchstart", onTouchStart, { capture: true, passive: true });
+    document.addEventListener("touchmove", onTouchMove, { capture: true, passive: true });
+    document.addEventListener("touchend", onTouchEnd, true);
+    document.addEventListener("touchcancel", onTouchEnd, true);
+    document.addEventListener("pointerdown", onPointerDown, true);
+    document.addEventListener("pointermove", onPointerMove, true);
+    document.addEventListener("pointerup", onPointerUp, true);
+    document.addEventListener("pointercancel", onPointerUp, true);
+    document.addEventListener("click", onClick, true);
+    return () => {
+      document.removeEventListener("touchstart", onTouchStart, true);
+      document.removeEventListener("touchmove", onTouchMove, true);
+      document.removeEventListener("touchend", onTouchEnd, true);
+      document.removeEventListener("touchcancel", onTouchEnd, true);
+      document.removeEventListener("pointerdown", onPointerDown, true);
+      document.removeEventListener("pointermove", onPointerMove, true);
+      document.removeEventListener("pointerup", onPointerUp, true);
+      document.removeEventListener("pointercancel", onPointerUp, true);
+      document.removeEventListener("click", onClick, true);
+    };
+  }, []);
+}
+
 function isPersistentHrAttendanceView(view: string): view is (typeof PERSISTENT_HR_ATTENDANCE_VIEWS)[number] {
   return PERSISTENT_HR_ATTENDANCE_VIEWS.includes(view as (typeof PERSISTENT_HR_ATTENDANCE_VIEWS)[number]);
 }
@@ -115,6 +221,7 @@ function PersistentHrAttendancePages({ activeView }: { activeView: (typeof PERSI
 }
 
 export function WorkHiveApp() {
+  useTableSwipeProtection();
   const { currentUser, view, selectedVideoApplicantId, hydrateSession, setFeatureToggles, setHolidays, featureToggles, setView } = useWorkHive();
   const [authReady, setAuthReady] = useState(false);
   const { data: featureToggleData } = useFeatureToggles();

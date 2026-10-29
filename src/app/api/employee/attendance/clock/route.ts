@@ -303,7 +303,7 @@ async function getTodayAttendanceRecord(employeeId: string, workDate: Date) {
 }
 
 async function buildClockPayload(user: { id: string; name: string; employeeId?: string | null; email: string }) {
-  const employee = await getEmployeeMasterRecordForUser(user);
+  const employee = await getEmployeeMasterRecordForUser({ ...user, employeeId: user.employeeId ?? undefined });
   if (!employee) {
     throw new Error("No employee record found.");
   }

@@ -375,12 +375,12 @@ export function InterviewSchedulingPage() {
   );
 
   const modeOptions = useMemo(
-    () => Array.from(new Set(ownScheduledApplicants.map(({ schedule }) => schedule?.mode).filter(Boolean))).sort((left, right) => left.localeCompare(right)),
+    () => Array.from(new Set(ownScheduledApplicants.map(({ schedule }) => schedule?.mode).filter((mode): mode is NonNullable<typeof mode> => Boolean(mode)))).sort((left, right) => left.localeCompare(right)),
     [ownScheduledApplicants],
   );
 
   const interviewerOptions = useMemo(
-    () => Array.from(new Set(ownScheduledApplicants.map(({ schedule }) => schedule?.interviewer).filter(Boolean))).sort((left, right) => left.localeCompare(right)),
+    () => Array.from(new Set(ownScheduledApplicants.map(({ schedule }) => schedule?.interviewer).filter((interviewer): interviewer is NonNullable<typeof interviewer> => Boolean(interviewer)))).sort((left, right) => left.localeCompare(right)),
     [ownScheduledApplicants],
   );
 

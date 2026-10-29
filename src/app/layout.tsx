@@ -9,7 +9,7 @@ import { QueryProvider } from "@/components/query-provider";
 const bodyStyle = {
   "--font-inter": '"Inter", "Segoe UI", Arial, sans-serif',
   "--font-geist-mono": '"Consolas", "Courier New", monospace',
-} satisfies CSSProperties;
+} as CSSProperties;
 
 export const metadata: Metadata = {
   title: "WorkHive - UC South Campus HRMS",

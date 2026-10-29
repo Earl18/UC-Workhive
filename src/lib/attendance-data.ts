@@ -32,11 +32,11 @@ let attendanceAvailableMonthsCache: { checkedAt: number; value: string[] } | nul
 const attendanceHolidayMonthCache = new Map<string, { checkedAt: number; value: Map<string, HolidayShape> }>();
 const attendanceApprovedLeaveMonthCache = new Map<string, { checkedAt: number; value: Set<string> }>();
 const attendanceDerivedSyncCache = new Map<string, { checkedAt: number; promise: Promise<AttendanceLogRow[]> }>();
-const attendanceSummaryPageCache = new Map<string, { checkedAt: number; promise: Promise<ReturnType<typeof buildHrAttendanceSummaryPayload>> }>();
-const hrTardinessPageCache = new Map<string, { checkedAt: number; promise: Promise<ReturnType<typeof buildHrTardinessPayload>> }>();
-const attendanceReportPageCache = new Map<string, { checkedAt: number; promise: Promise<ReturnType<typeof buildHrAttendanceReportPayload>> }>();
-const attendanceValidationPageCache = new Map<string, { checkedAt: number; promise: Promise<ReturnType<typeof buildAttendanceValidationDashboardPayload>> }>();
-const attendanceValidationFiltersCache = new Map<string, { checkedAt: number; promise: Promise<ReturnType<typeof buildAttendanceValidationFiltersPayload>> }>();
+const attendanceSummaryPageCache = new Map<string, { checkedAt: number; promise: ReturnType<typeof buildHrAttendanceSummaryPayload> }>();
+const hrTardinessPageCache = new Map<string, { checkedAt: number; promise: ReturnType<typeof buildHrTardinessPayload> }>();
+const attendanceReportPageCache = new Map<string, { checkedAt: number; promise: ReturnType<typeof buildHrAttendanceReportPayload> }>();
+const attendanceValidationPageCache = new Map<string, { checkedAt: number; promise: ReturnType<typeof buildAttendanceValidationDashboardPayload> }>();
+const attendanceValidationFiltersCache = new Map<string, { checkedAt: number; promise: ReturnType<typeof buildAttendanceValidationFiltersPayload> }>();
 
 export function invalidateAttendanceMetadataCache() {
   attendanceEmployeeLookupCache = null;
@@ -336,6 +336,7 @@ function prioritizeValidationFlags(flags: AttendanceValidationFlag[]) {
     INCOMPLETE_PUNCHES: 5,
     POSSIBLE_HALF_DAY: 6,
     HOLIDAY_ATTENDANCE_REQUIRES_VALIDATION: 10,
+    APPROVED_LEAVE_HAS_ATTENDANCE: 10,
     EMPLOYEE_NOT_FOUND: 11,
     OVERTIME_REQUIRES_CONFIRMATION: 12,
   };
@@ -649,6 +650,7 @@ function deriveAttendanceValues(input: {
   const weekday = new Date(`${date}T00:00:00`).getDay();
   const schedule = getSchedule(date, holiday);
   const parsedRow = {
+    rowNumber: 0,
     employeeName: "",
     date,
     dayName: "",
@@ -1654,7 +1656,7 @@ export type AttendanceSummaryPeriod = "whole-month" | "first-half" | "second-hal
 export type AttendanceSummaryFilters = {
   month?: string;
   staffCategory?: StaffCategory;
-  period?: AttendanceSummaryPeriod;
+  period?: string;
 };
 
 type AttendanceSummaryEmployeeRow = {
@@ -3486,7 +3488,7 @@ export async function bulkResolveAttendanceValidation(user: Pick<AuthenticatedPo
     throw new Error("No attendance records matched the selected bulk resolve filters.");
   }
   if (preview.issue === "overtime:pending") {
-    const updatedRecords = [];
+    const updatedRecords: Awaited<ReturnType<typeof updateAttendanceOvertimeDecision>>[] = [];
     for (const batch of chunkRecords(preview.records, 25)) {
       const batchResults = await Promise.all(batch.map((record) => updateAttendanceOvertimeDecision(user, {
         id: record.id,
@@ -3575,7 +3577,7 @@ export async function bulkResolveAttendanceValidationWithPunchAutoFill(user: Pic
     throw new Error("Some selected records still have pending overtime. Review those overtime items first.");
   }
 
-  const updatedRecords = [];
+  const updatedRecords: Awaited<ReturnType<typeof updateAttendanceRecordTimes>>[] = [];
   for (const batch of chunkRecords(preview.records, 25)) {
     const batchResults = await Promise.all(batch.map((record) => {
       const defaults = getDefaultPunchResolveValues(record);
@@ -3788,7 +3790,7 @@ export type HrTardinessSortKey = "timesLate" | "totalLateMinutes" | "avgLateMinu
 export type HrTardinessFilters = {
   month?: string;
   staffCategory?: StaffCategory;
-  period?: AttendanceSummaryPeriod;
+  period?: string;
   department?: string;
   employmentStatus?: string;
   sortKey?: HrTardinessSortKey;

@@ -307,7 +307,7 @@ export function AttendanceSummaryPage() {
         </CardHeader>
         <CardContent className="pt-0">
           <div className="max-h-[36rem] overflow-auto rounded-lg border border-border">
-            <Table className="table-fixed">
+            <Table className="min-w-[1280px] table-fixed">
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
                   <TableHead className="w-14 text-center">#</TableHead>

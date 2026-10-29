@@ -160,7 +160,7 @@ function normalizeStages(value: Prisma.JsonValue): LeaveApprovalStage[] {
         dateSigned: typeof record.dateSigned === "string" ? record.dateSigned : undefined,
       } satisfies LeaveApprovalStage;
     })
-    .filter((stage): stage is LeaveApprovalStage => stage != null);
+    .filter((stage) => stage != null);
 
   return parsed.length > 0 ? parsed : DEFAULT_STAGES.map((stage) => ({ ...stage }));
 }

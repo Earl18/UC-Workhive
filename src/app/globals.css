@@ -269,6 +269,19 @@
   height: 0;
 }
 
+/* Table wrappers may scroll on either axis; keep scrolling while hiding their chrome. */
+div:has(> [data-slot="table-container"]),
+div:has(> table),
+div:has(> div > table[data-slot="table"]) {
+  scrollbar-width: none;
+}
+
+div:has(> [data-slot="table-container"])::-webkit-scrollbar,
+div:has(> table)::-webkit-scrollbar,
+div:has(> div > table[data-slot="table"])::-webkit-scrollbar {
+  display: none;
+}
+
 .hide-horizontal-scrollbar::-webkit-scrollbar:horizontal {
   height: 0;
 }

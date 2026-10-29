@@ -231,12 +231,12 @@ export function EmployeeDetailsPage() {
   const currentAge = calculateAgeFromBirthDate(current.birthDate);
 
   function startEdit() {
-    setDraft({ ...employee });
+    setDraft(employee ? { ...employee } : null);
     setEditMode(true);
   }
 
   function cancelEdit() {
-    setDraft({ ...employee });
+    setDraft(employee ? { ...employee } : null);
     setEditMode(false);
   }
 

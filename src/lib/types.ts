@@ -88,6 +88,7 @@ export type AttendanceRecord = {
 
 export type AttendanceValidationFlag =
   | "EMPLOYEE_NOT_FOUND"
+  | "APPROVED_LEAVE_HAS_ATTENDANCE"
   | "OVERTIME_REQUIRES_CONFIRMATION"
   | "HOLIDAY_ATTENDANCE_REQUIRES_VALIDATION"
   | "MISSING_LUNCH_OUT"
@@ -209,6 +210,7 @@ export type LeaveRequest = {
   dateFrom: string;
   dateTo: string;
   days: number;
+  isHalfDay?: boolean;
   reason: string;
   dateFiled: string;
   attachment?: LeaveRequestAttachment;
@@ -263,6 +265,7 @@ export type ApplicantStageHistoryEntry = {
 export type InterviewMode = "Onsite" | "Online";
 
 export type InterviewSchedule = {
+  id?: string;
   date: string;
   status?: "Scheduled" | "Done";
   time: string;
@@ -271,15 +274,26 @@ export type InterviewSchedule = {
   mode: InterviewMode;
   venueOrLink: string;
   panel: string[];
+  interviewer?: string;
+  platform?: string;
+  location?: string;
+  rescheduled?: boolean;
+  previousDate?: string;
   createdBy?: string;
   moderatorUserId?: string;
 };
 
 export type InterviewScore = {
   applicantId: string;
+  positionApplied?: string;
+  department?: string;
   evaluator: string;
-  criteria: Record<string, number>;
+  criteria: Record<string, number> | Array<{ key: string; label: string; score: number; remarks: string }>;
   remarks?: string;
+  recommendation?: "Highly Recommended" | "Recommended" | "Recommended with Reservation" | "Not Recommended";
+  totalScore?: number;
+  interviewer?: string;
+  date?: string;
 };
 
 export type InterviewEvaluation = {

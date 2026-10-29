@@ -271,7 +271,7 @@ function combineEmployeeConditions(conditions: Prisma.Sql[]) {
 }
 
 function buildEmployeeMasterWhere(filters: EmployeeMasterListPageFilters) {
-  const conditions = [];
+  const conditions: Prisma.Sql[] = [];
   const search = (filters.search ?? "").trim();
 
   if (search) {
@@ -849,6 +849,8 @@ function chunkRecords<T>(items: T[], size: number) {
 }
 
 type NormalizedImportedEmployeeRecord = ImportedEmployeeDraft & {
+  idNumber: string;
+  accountRole: Extract<Role, "employee" | "hr">;
   email: string;
   position: string;
   avatarColor: string;
@@ -881,6 +883,7 @@ type ExistingEmployeeImportMatch = {
   education: EducationTier[];
   documents: DocumentRecord[];
   fullNameKey: string;
+  firstLastNameKey: string;
   fullNameLabel: string;
   comparisonKey: string;
 };
@@ -991,7 +994,7 @@ function importedEmployeeIdentityKey(record: Pick<ImportedEmployeeDraft, "idNumb
   return `row:${fallbackIndex}`;
 }
 
-function buildEmployeeImportComparisonKey(input: {
+function buildEmployeeImportComparisonKey(input: Partial<{
   idNumber: string | null | undefined;
   lastName: string | null | undefined;
   firstName: string | null | undefined;
@@ -1010,7 +1013,7 @@ function buildEmployeeImportComparisonKey(input: {
   avatarColor: string | null | undefined;
   education: EducationTier[] | null | undefined;
   documents: DocumentRecord[] | null | undefined;
-}) {
+}>) {
   return [
     normalizeComparableText(input.idNumber),
     normalizeComparableText(input.lastName),
@@ -1201,7 +1204,7 @@ export async function getEmployeeImportDuplicateSummary(records: ImportedEmploye
     const existingDbIdNumberConflicts = new Set<string>();
     const existingDbEmployeeIdConflicts = new Set<string>();
 
-    const matchRows = normalizedRecords.flatMap((record) => {
+    const matchRows = normalizedRecords.flatMap((record): DuplicateMatchRow[] => {
       const importedIdNumber = normalizeEmployeeIdNumber(record.idNumber);
       if (!importedIdNumber) {
         return [];
@@ -1297,7 +1300,7 @@ export async function getEmployeeImportDuplicateSummary(records: ImportedEmploye
   const existingDbEmails = Array.from(new Set(existingMatches.filter((match) => emailSet.has(match.email.toLowerCase())).map((match) => match.email.toLowerCase()))).sort((a, b) => a.localeCompare(b));
   const existingDbFullNames = Array.from(new Set(existingMatches.filter((match) => fullNameSet.has(match.fullNameKey)).map((match) => match.fullNameLabel))).sort((a, b) => a.localeCompare(b));
 
-  const matchRows = normalizedRecords.flatMap((record) => {
+  const matchRows = normalizedRecords.flatMap((record): DuplicateMatchRow[] => {
     const idNumberMatch = record.idNumber ? existingByIdNumber.get(record.idNumber.toLowerCase()) : undefined;
     const emailMatch = record.email ? existingByEmail.get(record.email) : undefined;
     const fullNameMatch = existingByFullName.get(record.fullNameKey);

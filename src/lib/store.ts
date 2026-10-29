@@ -319,7 +319,7 @@ export const useWorkHive = create<WorkHiveState>((set, get) => ({
           const stageHistory = shouldRecordStage
             ? [
                 ...(a.stageHistory ?? []).filter((entry) => entry.stage !== "Interview"),
-                { stage: "Interview", movedBy, movedAt },
+                { stage: "Interview" as const, movedBy, movedAt },
               ]
             : a.stageHistory;
 

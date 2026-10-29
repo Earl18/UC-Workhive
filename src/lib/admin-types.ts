@@ -1,10 +1,12 @@
-export type {
+import type {
   AuditLogEntry,
   EmailTemplate,
   FeatureToggles,
   GeofenceZone,
   SystemUser,
 } from "@/lib/types";
+
+export type { AuditLogEntry, EmailTemplate, FeatureToggles, GeofenceZone, SystemUser };
 
 export type SystemSettingsRecord = {
   organizationName: string;

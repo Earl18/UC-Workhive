@@ -31,9 +31,10 @@ import {
   MapPin, Mail, ScrollText, Plane, MoonStar, QrCode, Clock3,
 } from "lucide-react";
 
-const DESKTOP_SIDEBAR_WIDTH = "lg:ml-[280px]";
-const DESKTOP_SIDEBAR_COLLAPSED_WIDTH = "lg:ml-[72px]";
-const EXPANDED_SIDEBAR_WIDTH = "w-[256px] sm:w-[280px]";
+// Keep the content canvas wide on laptops; the full sidebar is reserved for large monitors.
+const DESKTOP_SIDEBAR_WIDTH = "2xl:ml-[248px]";
+const DESKTOP_SIDEBAR_COLLAPSED_WIDTH = "2xl:ml-[72px]";
+const EXPANDED_SIDEBAR_WIDTH = "w-[min(248px,calc(100vw-2rem))]";
 const COLLAPSED_SIDEBAR_WIDTH = "w-[72px]";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -75,7 +76,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-dvh min-w-0 bg-background">
       <Sidebar
         navGroups={nav}
         view={view}
@@ -99,13 +100,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <Button
             variant="ghost"
             size="icon"
-            className="shrink-0 lg:hidden"
+            className="shrink-0 2xl:hidden"
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <div className="shrink-0 lg:hidden">
+          <div className="shrink-0 2xl:hidden">
             <WorkHiveLogo size={44} showText={false} />
           </div>
           <div className="min-w-0 flex-1">
@@ -212,7 +213,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 max-w-full p-3 sm:p-4 lg:p-6">{children}</main>
+        <main className="min-w-0 flex-1 max-w-full overflow-x-auto p-3 pb-8 sm:p-4 sm:pb-8 2xl:p-6 2xl:pb-10">{children}</main>
       </div>
     </div>
   );
@@ -375,13 +376,13 @@ function Sidebar({
   return (
     <>
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={onCloseMobile} />
+        <div className="fixed inset-0 z-40 bg-black/50 2xl:hidden" onClick={onCloseMobile} />
       )}
       <aside
         className={cn(
-          "sidebar-honeycomb fixed inset-y-0 left-0 z-50 flex flex-col bg-sidebar text-sidebar-foreground transition-all duration-300",
+          "sidebar-honeycomb fixed inset-y-0 left-0 z-50 flex h-dvh min-h-0 flex-col bg-sidebar text-sidebar-foreground transition-all duration-300",
           collapsed ? COLLAPSED_SIDEBAR_WIDTH : EXPANDED_SIDEBAR_WIDTH,
-          mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+          mobileOpen ? "translate-x-0" : "-translate-x-full 2xl:translate-x-0"
         )}
       >
         <div className="logo-strip-pattern flex h-16 items-center justify-between border-b border-sidebar-border bg-sidebar px-3">
@@ -395,14 +396,14 @@ function Sidebar({
           <Button
             variant="ghost"
             size="icon"
-            className="text-sidebar-foreground hover:bg-sidebar-accent lg:hidden"
+            className="text-sidebar-foreground hover:bg-sidebar-accent 2xl:hidden"
             onClick={onCloseMobile}
           >
             <X className="h-5 w-5" />
           </Button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto scroll-thin py-3">
+        <nav className="min-h-0 flex-1 overflow-y-auto scroll-thin py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {navGroups.map((group) => (
             <div key={group.label} className="mb-3">
               {!collapsed && (
@@ -441,7 +442,7 @@ function Sidebar({
           ))}
         </nav>
 
-        <div className="hidden border-t border-sidebar-border p-2 lg:block">
+        <div className="hidden shrink-0 border-t border-sidebar-border p-2 2xl:block">
           <Button
             variant="ghost"
             size="sm"

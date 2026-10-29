@@ -195,7 +195,7 @@ function DraftEditor({
   return (
     <Card className="flex h-full flex-col">
       <CardHeader className="border-b border-border bg-muted/30 pb-4">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-start gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <FileText className="h-5 w-5" />
@@ -318,7 +318,7 @@ function DraftEditor({
           <p className="text-[11px] text-muted-foreground">Separate paragraphs with a blank line. The email renderer resolves placeholders from matching records and event values.</p>
         </div>
 
-        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-4">
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
           {dirty ? (
             <Badge variant="outline" className="border-gold/40 bg-gold/10 text-gold">
               <span className="h-1.5 w-1.5 rounded-full bg-gold" aria-hidden />
@@ -329,7 +329,7 @@ function DraftEditor({
               <Check className="h-3 w-3" /> Saved
             </Badge>
           )}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {mode === "create" ? (
               <Button variant="outline" onClick={onCancelCreate} disabled={isSaving}>
                 <ChevronLeft className="h-4 w-4" />
@@ -563,7 +563,7 @@ export function EmailTemplatesPage() {
             <p className="text-sm text-muted-foreground">Edit the email templates sent by WorkHive actions. Custom templates can be connected to new workflows.</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button onClick={() => setEditorMode("create")}>
             <Plus className="h-4 w-4" />
             Add Template

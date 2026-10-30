@@ -160,7 +160,7 @@ export function AIAssistant({ context, raised = false }: { context: "public" | "
           Background-free: the gold HiveBot mark IS the button (no disc, no
           glow). The fixed wrapper is exactly the button's size; tooltip and
           badge anchor to THIS wrapper so they never drift. */}
-      <div className={cn("fixed right-4 z-[100] h-14 w-14 transition-[bottom] duration-300 ease-out sm:right-5 sm:h-[60px] sm:w-[60px]", raised ? "bottom-24 sm:bottom-[100px]" : "bottom-4 sm:bottom-5")}>
+      <div className={cn("hivebot-launcher fixed right-4 z-[100] h-14 w-14 sm:right-5 sm:h-[60px] sm:w-[60px]", raised && "hivebot-launcher--raised")}>
         {/* === Hover tooltip ("Ask HiveBot") ===
             Anchored to the vertical centre of the button, sits to the left. */}
         <AnimatePresence>
@@ -250,7 +250,7 @@ export function AIAssistant({ context, raised = false }: { context: "public" | "
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.92, transformOrigin: "bottom right" }}
             transition={{ duration: 0.28, ease: easeOut }}
-            className={cn("fixed inset-x-3 z-[100] flex h-[540px] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl shadow-primary/10 transition-[bottom,max-height] duration-300 ease-out sm:inset-x-auto sm:right-5 sm:w-[390px]", raised ? "bottom-40 max-h-[calc(100dvh-11rem)] sm:bottom-44" : "bottom-20 max-h-[calc(100dvh-6rem)] sm:bottom-[96px]")}
+            className={cn("hivebot-panel fixed inset-x-3 z-[100] flex h-[540px] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl shadow-primary/10 sm:inset-x-auto sm:right-5 sm:w-[390px]", raised && "hivebot-panel--raised")}
             role="dialog"
             aria-label="WorkHive AI Assistant chat"
           >

@@ -211,6 +211,44 @@
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
 }
 
+.hivebot-launcher {
+  bottom: 1rem;
+  transition: bottom 300ms ease-out;
+}
+
+.hivebot-launcher--raised {
+  bottom: 6rem;
+}
+
+.hivebot-panel {
+  bottom: 5rem;
+  max-height: calc(100dvh - 6rem);
+  transition: bottom 300ms ease-out, max-height 300ms ease-out;
+}
+
+.hivebot-panel--raised {
+  bottom: 10rem;
+  max-height: calc(100dvh - 11rem);
+}
+
+@media (min-width: 40rem) {
+  .hivebot-launcher {
+    bottom: 1.25rem;
+  }
+
+  .hivebot-launcher--raised {
+    bottom: 6.25rem;
+  }
+
+  .hivebot-panel {
+    bottom: 6rem;
+  }
+
+  .hivebot-panel--raised {
+    bottom: 11rem;
+  }
+}
+
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;

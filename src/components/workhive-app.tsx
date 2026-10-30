@@ -6,6 +6,7 @@ import { useWorkHive } from "@/lib/store";
 import { getFallbackViewForRole, isViewEnabled } from "@/lib/feature-access";
 import { AppShell } from "@/components/app-shell";
 import { FirstLoginModal } from "@/components/first-login-modal";
+import { AIAssistant } from "@/components/shared/ai-assistant";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
 import { useHolidayRecords } from "@/hooks/use-holidays";
 
@@ -338,16 +339,25 @@ export function WorkHiveApp() {
   }
 
   if (!currentUser) {
-    switch (view) {
-      case "public:landing": return <LandingPage />;
-      case "public:about": return <AboutPage />;
-      case "public:careers": return <CareersPage />;
-      case "public:privacy": return <PrivacyPage />;
-      case "public:job-detail": return <JobDetailPage />;
-      case "public:login": return <LoginPage />;
-      case "public:forgot-password": return <ForgotPasswordPage />;
-      default: return <LandingPage />;
-    }
+    const publicPage = (() => {
+      switch (view) {
+        case "public:landing": return <LandingPage />;
+        case "public:about": return <AboutPage />;
+        case "public:careers": return <CareersPage />;
+        case "public:privacy": return <PrivacyPage />;
+        case "public:job-detail": return <JobDetailPage />;
+        case "public:login": return <LoginPage />;
+        case "public:forgot-password": return <ForgotPasswordPage />;
+        default: return <LandingPage />;
+      }
+    })();
+
+    return (
+      <>
+        {publicPage}
+        {view !== "public:login" && view !== "public:forgot-password" && <AIAssistant context="public" />}
+      </>
+    );
   }
 
   return (
@@ -360,6 +370,7 @@ export function WorkHiveApp() {
       {currentUser.role === "hr" && (view === "hr:video-conferencing" || selectedVideoApplicantId) ? (
         <HrVideoConferencing active={view === "hr:video-conferencing"} />
       ) : null}
+      <AIAssistant context={currentUser.role} />
     </AppShell>
   );
 }

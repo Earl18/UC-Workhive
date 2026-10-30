@@ -43,6 +43,8 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/src/lib/importers ./src/lib/importers
 COPY --from=builder /app/src/lib/exporters ./src/lib/exporters
+COPY --from=builder /app/hivebot-ai ./hivebot-ai
+RUN python3 -m unittest discover -s hivebot-ai -p test_bridge.py -q
 
 EXPOSE 8080
 CMD ["node", "server.js"]

@@ -1,0 +1,654 @@
+{
+  "version": 1,
+  "policy": "approved_public_and_role_level_system_information_only",
+  "cards": [
+    {
+      "id": "overview",
+      "title": "What is WorkHive?",
+      "answer": "WorkHive is the University of Cebu South Campus HR system. Its public site and role-based Employee, HR, and Admin portals cover attendance, leave, recruitment, employee records, documents, and notifications. Some modules depend on enabled features.",
+      "source": "About WorkHive",
+      "train": [
+        "what is workhive",
+        "tell me about the system",
+        "what does this platform do",
+        "give an overview of workhive"
+      ],
+      "test": "What is WorkHive used for?",
+      "source_paths": [
+        "src/components/pages/public/about.tsx",
+        "src/components/workhive-app.tsx"
+      ]
+    },
+    {
+      "id": "roles",
+      "title": "Who can use WorkHive?",
+      "answer": "WorkHive has Employee, HR, and Admin portals. The pages available to a user depend on the user's role and enabled features.",
+      "source": "About WorkHive",
+      "train": [
+        "what are the user roles",
+        "who uses the portal",
+        "employee hr admin access",
+        "which types of users are there"
+      ],
+      "test": "What are the three WorkHive portals?",
+      "source_paths": [
+        "src/components/app-shell.tsx",
+        "src/lib/feature-access.ts"
+      ]
+    },
+    {
+      "id": "sign_in",
+      "title": "How do I sign in?",
+      "answer": "Open Sign In and enter your assigned WorkHive email and password. After sign-in, WorkHive opens the portal for your role. If you cannot sign in, use Forgot Password or contact HR through an official channel. Never send credentials to this assistant.",
+      "source": "Sign In",
+      "train": [
+        "how do i log in",
+        "where is the login page",
+        "sign in to workhive",
+        "access my account"
+      ],
+      "test": "How can a staff member enter WorkHive?",
+      "source_paths": [
+        "src/components/pages/public/login.tsx",
+        "src/components/workhive-app.tsx"
+      ]
+    },
+    {
+      "id": "password_reset",
+      "title": "How do I reset a password?",
+      "answer": "On Sign In, choose Forgot Password, enter the email registered to your WorkHive account, and use the time-limited reset link sent to that address. Check your spam folder or contact HR if the message does not arrive. Never share the link or code here.",
+      "source": "Forgot Password",
+      "train": [
+        "forgot my password",
+        "reset workhive password",
+        "recover login credentials",
+        "cant remember password",
+        "regain access to a WorkHive account",
+        "recover access after forgetting a login"
+      ],
+      "test": "Where is password recovery?",
+      "source_paths": [
+        "src/components/pages/public/forgot-password.tsx",
+        "src/app/api/auth/forgot-password/route.ts"
+      ]
+    },
+    {
+      "id": "careers",
+      "title": "Where can I see job openings?",
+      "answer": "Open the public Careers page to browse job postings. You can search or filter by department and posting status, then open a posting to read its details and qualifications. Check the posting itself for current availability.",
+      "source": "Careers",
+      "train": [
+        "where are open jobs",
+        "show job posting page",
+        "find vacancies",
+        "browse careers"
+      ],
+      "test": "How can applicants find posted jobs?",
+      "source_paths": [
+        "src/components/pages/public/careers.tsx"
+      ]
+    },
+    {
+      "id": "apply",
+      "title": "How does an applicant apply?",
+      "answer": "On Careers, open an active posting and select Apply. Complete the application form and upload each required document shown there, then submit. The page confirms a successful submission; this assistant cannot submit an application or check its status.",
+      "source": "Job Detail",
+      "train": [
+        "how to apply for a job",
+        "submit job application",
+        "apply for an opening",
+        "where is the application form",
+        "respond to a posted vacancy",
+        "send an application for an advertised opening"
+      ],
+      "test": "What steps are shown for applying to a WorkHive posting?",
+      "source_paths": [
+        "src/components/pages/public/job-detail.tsx",
+        "src/app/api/public/applications/route.ts"
+      ]
+    },
+    {
+      "id": "employee_dashboard",
+      "title": "What is on the employee dashboard?",
+      "answer": "The Employee Dashboard summarizes the signed-in employee's attendance and leave information and links to Clock In/Clock Out, My Profile, File a Leave, and other available pages. This assistant cannot see those personal summaries.",
+      "source": "Employee Dashboard",
+      "train": [
+        "employee home page",
+        "what is on my dashboard",
+        "employee portal overview",
+        "dashboard quick links"
+      ],
+      "test": "What can an employee open from their dashboard?",
+      "source_paths": [
+        "src/components/pages/employee/dashboard.tsx"
+      ]
+    },
+    {
+      "id": "time_clock",
+      "title": "How do employees record attendance?",
+      "answer": "In the Employee portal, open Clock In/Clock Out. Use Clock In to start a shift, Lunch Out and Lunch In when offered, and End Shift to finish. The page shows today's timeline and a weekly summary. Location checks may apply under campus settings.",
+      "source": "Time Clock",
+      "train": [
+        "how to time in",
+        "clock in and out",
+        "record my attendance",
+        "use employee time clock"
+      ],
+      "test": "Where does an employee log time in or out?",
+      "source_paths": [
+        "src/components/pages/employee/time-clock.tsx",
+        "src/app/api/employee/attendance/clock/route.ts"
+      ]
+    },
+    {
+      "id": "qr_attendance",
+      "title": "Can employees use QR attendance?",
+      "answer": "The current Employee portal does not expose a QR Attendance page. Its active attendance page is Clock In/Clock Out. Some older page content mentions QR attendance, but do not rely on that as an available workflow.",
+      "source": "Current portal navigation",
+      "train": [
+        "how does qr attendance work",
+        "scan qr for attendance",
+        "qr time in",
+        "use qr code to log attendance"
+      ],
+      "test": "Is QR attendance available in WorkHive?",
+      "source_paths": [
+        "src/components/pages/employee/qr-attendance.tsx",
+        "src/components/workhive-app.tsx",
+        "src/components/app-shell.tsx"
+      ]
+    },
+    {
+      "id": "attendance_history",
+      "title": "Where can employees view attendance history?",
+      "answer": "Open Attendance History in the Employee portal to review your own saved time records. This assistant cannot view or confirm any person's attendance entries.",
+      "source": "Employee Attendance",
+      "train": [
+        "view attendance history",
+        "check my time records",
+        "see previous attendance",
+        "where are my attendance logs",
+        "page for past clock ins",
+        "employee previous clock in records"
+      ],
+      "test": "Which page shows an employee's saved attendance records?",
+      "source_paths": [
+        "src/components/pages/employee/attendance.tsx"
+      ]
+    },
+    {
+      "id": "leave_file",
+      "title": "How do employees file leave?",
+      "answer": "Open File a Leave in the Employee portal. Choose a leave type, enter the dates and reason, attach a supporting file if needed, and submit. The form checks date rules and available credits; the submitted request goes to HR for review.",
+      "source": "Employee Leave",
+      "train": [
+        "file a leave application",
+        "request vacation leave",
+        "submit sick leave",
+        "how to apply for leave"
+      ],
+      "test": "Where does an employee send a leave request?",
+      "source_paths": [
+        "src/components/pages/employee/leave.tsx",
+        "src/app/api/employee/leave/route.ts"
+      ]
+    },
+    {
+      "id": "leave_status",
+      "title": "Where can employees check a leave request?",
+      "answer": "Open File a Leave to see your submitted requests and their Pending, Approved, or Disapproved status. Open a request for the HR decision and any remarks. This assistant cannot check a particular request.",
+      "source": "Employee Leave",
+      "train": [
+        "track leave application",
+        "see leave approval status",
+        "check filed leave",
+        "leave request progress"
+      ],
+      "test": "Which page shows the status of filed leave?",
+      "source_paths": [
+        "src/components/pages/employee/leave.tsx"
+      ]
+    },
+    {
+      "id": "leave_balance",
+      "title": "Where can employees see leave credits?",
+      "answer": "The File a Leave page shows the signed-in employee's remaining leave credits by leave type. The assistant cannot retrieve a person's balance or tell whether a specific request will be approved.",
+      "source": "Employee Leave",
+      "train": [
+        "view leave credits",
+        "where is leave balance",
+        "remaining vacation days page",
+        "see available leave days"
+      ],
+      "test": "Where does WorkHive display leave credits?",
+      "source_paths": [
+        "src/components/pages/employee/leave.tsx"
+      ]
+    },
+    {
+      "id": "profile",
+      "title": "How do employees update a profile?",
+      "answer": "Open My Profile in the Employee portal to view your details and edit fields the page allows. Save Changes when finished. Contact HR through an official channel about records you cannot correct there.",
+      "source": "Employee Profile",
+      "train": [
+        "edit my profile",
+        "update contact information",
+        "change employee details",
+        "my profile page"
+      ],
+      "test": "Where can staff update allowed profile fields?",
+      "source_paths": [
+        "src/components/pages/employee/profile.tsx"
+      ]
+    },
+    {
+      "id": "documents",
+      "title": "How do employees upload documents?",
+      "answer": "Open Documents / Certificates in the Employee portal, then choose Upload Document. Select the document type and file required by the page. This assistant cannot receive, inspect, or store employee files.",
+      "source": "Employee Documents",
+      "train": [
+        "upload certificate",
+        "submit diploma in portal",
+        "where is document vault",
+        "add my documents",
+        "upload certificates to the employee portal",
+        "place a diploma in WorkHive documents"
+      ],
+      "test": "Which WorkHive page handles employee document uploads?",
+      "source_paths": [
+        "src/components/pages/employee/documents.tsx"
+      ]
+    },
+    {
+      "id": "notifications",
+      "title": "Where are notifications?",
+      "answer": "Open Notifications in the Employee portal to see notices for your signed-in account. You can filter the list and mark notices as read in the portal. This assistant cannot read your notices.",
+      "source": "Employee Notifications",
+      "train": [
+        "see notifications",
+        "where are system alerts",
+        "view leave notices",
+        "find my notifications"
+      ],
+      "test": "Where should an employee check WorkHive notices?",
+      "source_paths": [
+        "src/components/pages/employee/notifications.tsx"
+      ]
+    },
+    {
+      "id": "holidays",
+      "title": "Where is the holiday calendar?",
+      "answer": "WorkHive provides a Holiday Calendar in the employee and HR portals. Check the calendar for the current dates and details; the assistant does not have live calendar data.",
+      "source": "Holiday Calendar",
+      "train": [
+        "view holidays",
+        "holiday schedule page",
+        "where is holiday calendar",
+        "upcoming holidays in workhive"
+      ],
+      "test": "Which page lists holidays?",
+      "source_paths": [
+        "src/components/pages/employee/holidays.tsx",
+        "src/components/pages/hr/holidays.tsx"
+      ]
+    },
+    {
+      "id": "hr_master_list",
+      "title": "What is the Employee Master List?",
+      "answer": "Authorized HR staff use Employee Master List to search and filter employee records, add an employee, and import or export Excel workbooks. Import first shows a preview and duplicate warnings before HR confirms the save. Employee details stay in the protected portal.",
+      "source": "HR Employee Master List",
+      "train": [
+        "what does master list do",
+        "hr employee list module",
+        "manage employee records",
+        "import employees page"
+      ],
+      "test": "What is the HR master list for?",
+      "source_paths": [
+        "src/components/pages/hr/master-list.tsx",
+        "src/app/api/hr/master-list/import/preview/route.ts"
+      ]
+    },
+    {
+      "id": "hr_attendance_report",
+      "title": "What does the Attendance Report do?",
+      "answer": "Authorized HR staff use Attendance Report to review time records, overtime, and filters. Excel import extracts a preview, identifies unmatched or flagged rows and duplicates, then requires confirmation; flagged rows go to Attendance Validation. Export uses the selected date range and filters.",
+      "source": "HR Attendance Report",
+      "train": [
+        "hr attendance report purpose",
+        "import attendance records",
+        "export attendance report",
+        "monitor daily time logs"
+      ],
+      "test": "What is the HR attendance reporting page used for?",
+      "source_paths": [
+        "src/components/pages/hr/attendance.tsx",
+        "src/app/api/hr/attendance/import/preview/route.ts"
+      ]
+    },
+    {
+      "id": "hr_attendance_validation",
+      "title": "What is Attendance Validation?",
+      "answer": "Attendance Validation is the HR queue for flagged attendance entries, such as unmatched employees or incomplete punches. Authorized staff can filter issues and resolve supported cases in the protected portal.",
+      "source": "HR Attendance Validation",
+      "train": [
+        "validate attendance",
+        "flagged time records",
+        "incomplete attendance queue",
+        "unmatched employee attendance",
+        "review timekeeping anomalies",
+        "queue for irregular time entries"
+      ],
+      "test": "Where does HR review flagged attendance entries?",
+      "source_paths": [
+        "src/components/pages/hr/attendance-validation.tsx"
+      ]
+    },
+    {
+      "id": "hr_attendance_summary",
+      "title": "What is the Attendance Summary?",
+      "answer": "Attendance Summary gives HR a summarized view of attendance by the available filters. Open the protected HR page for current totals; this assistant has no live records.",
+      "source": "HR Attendance Summary",
+      "train": [
+        "attendance analytics",
+        "hr attendance summary",
+        "summarize attendance page",
+        "staff attendance trends"
+      ],
+      "test": "Which HR page shows attendance summaries?",
+      "source_paths": [
+        "src/components/pages/hr/attendance-summary.tsx"
+      ]
+    },
+    {
+      "id": "hr_tardiness",
+      "title": "What is Tardiness Monitoring?",
+      "answer": "Tardiness Monitoring lets authorized HR staff review late-arrival patterns and related attendance records. This assistant cannot identify or assess individual employees.",
+      "source": "HR Tardiness Monitoring",
+      "train": [
+        "tardiness page purpose",
+        "monitor late arrivals",
+        "hr lateness report",
+        "review tardiness"
+      ],
+      "test": "Where does HR review late attendance?",
+      "source_paths": [
+        "src/components/pages/hr/tardiness.tsx"
+      ]
+    },
+    {
+      "id": "hr_leave",
+      "title": "What does Leave Management do?",
+      "answer": "In Leave Management, HR reviews employee leave requests and can approve or disapprove them. A disapproval requires a reason, and the employee can see the decision and remarks in File a Leave. Leave Summary Remaining reports credits in the protected HR portal.",
+      "source": "HR Leave Management",
+      "train": [
+        "hr leave approvals",
+        "manage staff leave requests",
+        "leave summary remaining",
+        "review leave applications",
+        "approve staff time off",
+        "review staff time off requests"
+      ],
+      "test": "How does HR handle leave in WorkHive?",
+      "source_paths": [
+        "src/components/pages/hr/leave-management.tsx",
+        "src/components/pages/hr/leave-summary.tsx"
+      ]
+    },
+    {
+      "id": "hr_recruitment",
+      "title": "How does HR manage recruitment?",
+      "answer": "HR creates and manages openings in Job Postings. Applicants submit through public Careers; HR reviews them in Job Applications and moves them through New, Screening, Interview, Offer, Hired, or Rejected. Interview Scheduling, Interview Result, and Video Conferencing support the interview stage.",
+      "source": "HR Recruitment",
+      "train": [
+        "hr recruitment workflow",
+        "manage job postings and applicants",
+        "interview process pages",
+        "what happens after applications",
+        "how does the hiring pipeline work",
+        "recruitment process in workhive"
+      ],
+      "test": "Which HR modules support hiring?",
+      "source_paths": [
+        "src/components/pages/hr/job-postings.tsx",
+        "src/components/pages/hr/applications.tsx"
+      ]
+    },
+    {
+      "id": "hr_reports",
+      "title": "What is the Reports Hub?",
+      "answer": "The HR Reports Hub combines attendance, leave, recruitment, and other available HR summaries for authorized staff. Open that protected page for current figures; this assistant cannot retrieve report data.",
+      "source": "HR Reports Hub",
+      "train": [
+        "what is reports hub",
+        "hr reporting module",
+        "where are reports",
+        "workhive reports page"
+      ],
+      "test": "Where do HR staff open reports?",
+      "source_paths": [
+        "src/components/pages/hr/reports.tsx"
+      ]
+    },
+    {
+      "id": "admin_tools",
+      "title": "What can administrators manage?",
+      "answer": "The Admin portal provides System Settings, Feature Toggles, GPS Attendance Zones, User & Role Management, Email Templates, and Audit Log. Only authorized administrators can use these controls.",
+      "source": "Admin Portal",
+      "train": [
+        "admin portal features",
+        "what can admin control",
+        "administrator modules",
+        "system settings and users"
+      ],
+      "test": "What tools are in WorkHive Admin?",
+      "source_paths": [
+        "src/components/app-shell.tsx",
+        "src/components/workhive-app.tsx"
+      ]
+    },
+    {
+      "id": "feature_toggles",
+      "title": "What are feature toggles?",
+      "answer": "Administrators use Feature Toggles to enable or disable supported modules. A disabled module can be hidden from the portal, so page availability may differ by configuration and role.",
+      "source": "Admin Feature Toggles",
+      "train": [
+        "enable modules",
+        "turn off a feature",
+        "feature controls",
+        "why is a page unavailable"
+      ],
+      "test": "Who controls enabled WorkHive features?",
+      "source_paths": [
+        "src/components/pages/admin/feature-toggles.tsx",
+        "src/lib/feature-access.ts"
+      ]
+    },
+    {
+      "id": "gps_zones",
+      "title": "What are GPS zones?",
+      "answer": "Administrators use GPS Attendance Zones to configure location checks for attendance when GPS verification is enabled. Employees may need to pass those checks to record a clock action. This assistant does not reveal zone settings.",
+      "source": "Admin GPS Zones",
+      "train": [
+        "geofence attendance",
+        "gps zone settings",
+        "location attendance feature",
+        "manage attendance zones"
+      ],
+      "test": "What are geofence zones used for?",
+      "source_paths": [
+        "src/components/pages/admin/gps-zones.tsx",
+        "src/app/api/employee/attendance/clock/route.ts"
+      ]
+    },
+    {
+      "id": "privacy",
+      "title": "What information does WorkHive handle?",
+      "answer": "The public Privacy Policy explains what WorkHive collects, why it is processed, who can access it, and how to make a privacy request. WorkHive handles employee, applicant, attendance, leave, document, account, and audit information. This assistant has no access to those records.",
+      "source": "WorkHive Privacy page",
+      "train": [
+        "privacy policy",
+        "what data is collected",
+        "how does workhive use personal information",
+        "data protection in workhive"
+      ],
+      "test": "Where does WorkHive explain its data practices?",
+      "source_paths": [
+        "src/components/pages/public/privacy.tsx"
+      ]
+    },
+    {
+      "id": "data_rights",
+      "title": "How do I ask about my personal data?",
+      "answer": "Read the public Privacy Policy and submit a written or documented personal-data request to the HR Office through an official channel. This assistant cannot verify identity or process a records request.",
+      "source": "WorkHive Privacy page",
+      "train": [
+        "request my personal data",
+        "correct my information",
+        "exercise privacy rights",
+        "ask for my records"
+      ],
+      "test": "How should someone request access to their own WorkHive data?",
+      "source_paths": [
+        "src/components/pages/public/privacy.tsx"
+      ]
+    },
+    {
+      "id": "hr_dashboard",
+      "title": "What is on the HR dashboard?",
+      "answer": "The HR dashboard shows attendance, leave, and recruitment summary cards for authorized HR staff. Open the relevant HR module for the underlying records.",
+      "source": "HR Dashboard",
+      "train": [
+        "hr dashboard overview",
+        "what is on the hr home page",
+        "hr summary cards",
+        "attendance leave recruitment dashboard"
+      ],
+      "test": "What does the HR dashboard summarize?",
+      "source_paths": [
+        "src/components/pages/hr/dashboard.tsx"
+      ]
+    },
+    {
+      "id": "employee_applications",
+      "title": "Where can an employee see job applications?",
+      "answer": "The current Employee portal does not expose a My Applications page. A public Careers application shows a submission confirmation; for a personal application-status question, use an official HR contact channel. This assistant cannot look up applicant records.",
+      "source": "Current portal navigation",
+      "train": [
+        "employee job applications page",
+        "check submitted job applications",
+        "where are my applications",
+        "employee interview details"
+      ],
+      "test": "Where are an employee's job applications shown?",
+      "source_paths": [
+        "src/components/pages/employee/applications.tsx",
+        "src/components/workhive-app.tsx",
+        "src/components/app-shell.tsx"
+      ]
+    },
+    {
+      "id": "hr_interview_scheduling",
+      "title": "How does HR schedule interviews?",
+      "answer": "HR uses Interview Scheduling to book or reschedule an applicant interview, choose onsite or online mode, and enter the time and interviewer details. The page checks for past times and overlapping schedules; online meetings receive a private link when saved.",
+      "source": "HR Interview Scheduling",
+      "train": [
+        "schedule applicant interviews",
+        "hr interview calendar",
+        "arrange candidate interview",
+        "interview scheduling page",
+        "recruiter arranges candidate meeting",
+        "book an interview meeting with applicants"
+      ],
+      "test": "Which HR page arranges interviews?",
+      "source_paths": [
+        "src/components/pages/hr/interview-scheduling.tsx"
+      ]
+    },
+    {
+      "id": "hr_interview_results",
+      "title": "Where are interview results managed?",
+      "answer": "Authorized interviewers use Interview Result to view or edit saved interview evaluations for interviews assigned to them. HR reviews the report before moving an applicant to the next stage. Scores and outcomes remain private.",
+      "source": "HR Interview Result",
+      "train": [
+        "record interview score",
+        "manage interview outcomes",
+        "hr interview result page",
+        "candidate scoring module",
+        "record candidate interview outcomes",
+        "maintain outcomes from job interviews"
+      ],
+      "test": "Which page handles interview scoring?",
+      "source_paths": [
+        "src/components/pages/hr/interviews.tsx",
+        "src/components/pages/hr/interview-scoring-panel.tsx"
+      ]
+    },
+    {
+      "id": "hr_video",
+      "title": "What is the Video Conferencing page?",
+      "answer": "The HR Video Conferencing page supports online interviews scheduled for the signed-in HR moderator. Meeting and guest links belong in the protected recruitment workflow; this assistant cannot access a session.",
+      "source": "HR Video Conferencing",
+      "train": [
+        "online interview room",
+        "video conference for recruitment",
+        "hr video conferencing",
+        "remote interview page"
+      ],
+      "test": "Where does HR conduct online interviews?",
+      "source_paths": [
+        "src/components/pages/hr/video-conferencing.tsx"
+      ]
+    },
+    {
+      "id": "admin_users",
+      "title": "What is User and Role Management?",
+      "answer": "Authorized administrators use User & Role Management to manage WorkHive accounts and roles. The assistant cannot create accounts, change permissions, or disclose user records.",
+      "source": "Admin User & Role Management",
+      "train": [
+        "manage user roles",
+        "admin accounts page",
+        "user and role management",
+        "assign employee hr admin"
+      ],
+      "test": "Which admin page manages roles?",
+      "source_paths": [
+        "src/components/pages/admin/users.tsx"
+      ]
+    },
+    {
+      "id": "admin_email",
+      "title": "What are Email Templates?",
+      "answer": "Authorized administrators manage system message templates in the Email Templates page. Actual recipient details and sent messages remain outside this assistant.",
+      "source": "Admin Email Templates",
+      "train": [
+        "edit email templates",
+        "admin message templates",
+        "notification email content",
+        "email templates module",
+        "edit automated email wording",
+        "admin message template text"
+      ],
+      "test": "Where are WorkHive email templates managed?",
+      "source_paths": [
+        "src/components/pages/admin/email-templates.tsx"
+      ]
+    },
+    {
+      "id": "admin_audit",
+      "title": "What is the Audit Log?",
+      "answer": "The Admin Audit Log is for authorized review of recorded system actions. Its entries may contain sensitive information, so the assistant does not read or summarize them.",
+      "source": "Admin Audit Log",
+      "train": [
+        "review system actions",
+        "admin audit trail",
+        "audit log page",
+        "where are admin activity logs"
+      ],
+      "test": "Which page shows recorded system actions?",
+      "source_paths": [
+        "src/components/pages/admin/audit-log.tsx"
+      ]
+    }
+  ]
+}

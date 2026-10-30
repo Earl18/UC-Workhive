@@ -1,0 +1,307 @@
+{
+  "source": "reviewed local Qwen3 question candidates; questions only, no generated answers",
+  "teacher": "Qwen3-1.7B-GGUF-Q8_0",
+  "model_sha256": "061b54daade076b5d3362dac252678d17da8c68f07560be70818cace6590cb1a",
+  "guide_sha256": "a6be60ae3759c84642fa834869368fb9068f94d1a7061bb40b4e2c5d282906d3",
+  "items": [
+    {
+      "id": "overview",
+      "questions": [
+        "What is the main purpose of WorkHive in the context of the University of Cebu South Campus?",
+        "How does WorkHive organize the different HR functions for employees?",
+        "What is the primary goal of integrating attendance, leave, and recruitment into a single platform in WorkHive?"
+      ]
+    },
+    {
+      "id": "roles",
+      "questions": [
+        "How does the system determine which pages are available to users?",
+        "Which roles have access to WorkHive?"
+      ]
+    },
+    {
+      "id": "sign_in",
+      "questions": [
+        "What is the purpose of the sign-in process in WorkHive?",
+        "How does the sign-in process work for accessing WorkHive?",
+        "What steps should I take if I cannot sign in to WorkHive?",
+        "How can I locate the sign-in page for WorkHive?"
+      ]
+    },
+    {
+      "id": "password_reset",
+      "questions": [
+        "What is the purpose of the Forgot Password feature?",
+        "What steps are required to reset a password using this feature?"
+      ]
+    },
+    {
+      "id": "careers",
+      "questions": [
+        "Where can I find job openings that are publicly posted?",
+        "How can I view the qualifications required for job postings?",
+        "What is the process for accessing job listings?",
+        "How do I access the page where job postings are listed?"
+      ]
+    },
+    {
+      "id": "apply",
+      "questions": [
+        "What is the purpose of the application process for this job?",
+        "Where can the applicant find the application form?"
+      ]
+    },
+    {
+      "id": "employee_dashboard",
+      "questions": [
+        "What does the employee dashboard display?",
+        "How are the items on the dashboard determined?",
+        "What information is available through the dashboard?",
+        "What features are accessible on the employee dashboard?"
+      ]
+    },
+    {
+      "id": "time_clock",
+      "questions": [
+        "What is the purpose of the time clock feature in WorkHive?",
+        "How does the system handle attendance checks when the feature is enabled?"
+      ]
+    },
+    {
+      "id": "qr_attendance",
+      "questions": [
+        "What is the purpose of the QR Attendance feature in WorkHive?",
+        "How does the QR Attendance process work within the system?",
+        "Where is the QR Attendance functionality located in WorkHive?"
+      ]
+    },
+    {
+      "id": "attendance_history",
+      "questions": [
+        "What is the location of the attendance history page?"
+      ]
+    },
+    {
+      "id": "leave_file",
+      "questions": [
+        "What is the purpose of the leave filing process in WorkHive?",
+        "Where can employees access the leave filing feature?",
+        "What steps are required to submit a leave request?"
+      ]
+    },
+    {
+      "id": "leave_status",
+      "questions": []
+    },
+    {
+      "id": "leave_balance",
+      "questions": [
+        "How is leave credit displayed on the Employee Leave page?",
+        "What information is shown on the dashboard regarding leave credits?"
+      ]
+    },
+    {
+      "id": "profile",
+      "questions": [
+        "What is the purpose of the profile update feature in WorkHive?",
+        "How does the profile update process work in the employee portal?",
+        "What happens if the profile does not allow changes to certain records?"
+      ]
+    },
+    {
+      "id": "documents",
+      "questions": [
+        "What is the purpose of the Upload Document action on the Documents page?",
+        "Where is the Upload Document action located on the Documents page?",
+        "What is the role of the Documents page in the document upload process?"
+      ]
+    },
+    {
+      "id": "notifications",
+      "questions": [
+        "What is the purpose of the Notifications page in WorkHive?",
+        "Where can I find the Notifications section in WorkHive?",
+        "What types of system notices are displayed on the Notifications page?"
+      ]
+    },
+    {
+      "id": "holidays",
+      "questions": [
+        "What is the purpose of the holiday calendar feature in WorkHive?",
+        "How does the holiday calendar work in the employee and HR portals?",
+        "What is the location of the holiday calendar in the system?"
+      ]
+    },
+    {
+      "id": "hr_master_list",
+      "questions": [
+        "What is the primary purpose of the Employee Master List?",
+        "What is the role of the Employee Master List in import and export processes?",
+        "How is the Employee Master List used by authorized HR staff?"
+      ]
+    },
+    {
+      "id": "hr_attendance_report",
+      "questions": [
+        "What is the main function of the Attendance Report?",
+        "How does the Attendance Report track employee attendance?",
+        "What is the purpose of the import and export functionality in the Attendance Report?",
+        "Where is the Attendance Report accessed from?"
+      ]
+    },
+    {
+      "id": "hr_attendance_validation",
+      "questions": [
+        "What is the primary purpose of the Attendance Validation feature?",
+        "Where can authorized staff access and resolve attendance validation cases?",
+        "What role does the HR portal play in the Attendance Validation workflow?"
+      ]
+    },
+    {
+      "id": "hr_attendance_summary",
+      "questions": [
+        "What is the primary purpose of the Attendance Summary feature?",
+        "How does the Attendance Summary provide aggregated data?",
+        "Where can the Attendance Summary be accessed from?"
+      ]
+    },
+    {
+      "id": "hr_tardiness",
+      "questions": [
+        "What is the main purpose of Tardiness Monitoring?",
+        "How does Tardiness Monitoring help in tracking employee attendance?",
+        "What is the role of HR staff in using Tardiness Monitoring?",
+        "Where is Tardiness Monitoring accessed from?"
+      ]
+    },
+    {
+      "id": "hr_leave",
+      "questions": [
+        "What is the main function of Leave Management in WorkHive?",
+        "How does the system handle the approval of employee leave requests?",
+        "What information does the Leave Summary page provide?"
+      ]
+    },
+    {
+      "id": "hr_recruitment",
+      "questions": [
+        "What is the main purpose of the HR system in managing recruitment?",
+        "What tools are available for scheduling interviews and managing applicant reviews?",
+        "Where does the system allow for managing recruitment steps?"
+      ]
+    },
+    {
+      "id": "hr_reports",
+      "questions": [
+        "What is the primary purpose of the Reports Hub in the WorkHive system?",
+        "How does the Reports Hub facilitate access to HR operational data?",
+        "Where can users access the Reports Hub within WorkHive?"
+      ]
+    },
+    {
+      "id": "admin_tools",
+      "questions": [
+        "What can administrators control through the Admin portal?",
+        "What settings are available for managing system operations in the Admin portal?",
+        "What features can be configured using the Admin portal?",
+        "What options are available for managing user access and roles in the Admin portal?"
+      ]
+    },
+    {
+      "id": "feature_toggles",
+      "questions": [
+        "What is the primary purpose of feature toggles in WorkHive?",
+        "How does the system determine which modules are available to users?",
+        "What is the role of an administrator in managing feature toggles?",
+        "How does the system handle changes to module availability?"
+      ]
+    },
+    {
+      "id": "gps_zones",
+      "questions": [
+        "What is the purpose of GPS zones in WorkHive?",
+        "Where are GPS zones applied within the system?",
+        "What is the role of GPS zones in attendance tracking?"
+      ]
+    },
+    {
+      "id": "privacy",
+      "questions": [
+        "What does WorkHive manage in terms of data?",
+        "How does WorkHive handle employee information?",
+        "What types of data does WorkHive store?",
+        "What information is processed by WorkHive?"
+      ]
+    },
+    {
+      "id": "data_rights",
+      "questions": [
+        "How does the workflow for requesting personal data work?",
+        "What is the location of the official channel for personal data requests?"
+      ]
+    },
+    {
+      "id": "hr_dashboard",
+      "questions": [
+        "What does the HR dashboard display?",
+        "How can I access the information on the HR dashboard?",
+        "What types of data are included in the HR dashboard?",
+        "Where can I find the HR dashboard information?"
+      ]
+    },
+    {
+      "id": "employee_applications",
+      "questions": [
+        "Where can an employee view the job applications they have applied for?",
+        "What is the location of the job applications page for an employee?"
+      ]
+    },
+    {
+      "id": "hr_interview_scheduling",
+      "questions": [
+        "What is the purpose of the Interview Scheduling feature?",
+        "How does the HR staff schedule interviews?",
+        "Where can the interview details be accessed?",
+        "What is the main function of the Interview Scheduling tool?"
+      ]
+    },
+    {
+      "id": "hr_interview_results",
+      "questions": [
+        "Where is the system that manages interview results located?"
+      ]
+    },
+    {
+      "id": "hr_video",
+      "questions": [
+        "What is the primary purpose of the Video Conferencing page?",
+        "What is the role of the protected workflow in this feature?",
+        "Where is the Video Conferencing page typically located?"
+      ]
+    },
+    {
+      "id": "admin_users",
+      "questions": [
+        "What is the primary purpose of User and Role Management in WorkHive?",
+        "What are the key responsibilities of someone using User and Role Management?",
+        "Where does User and Role Management operate within WorkHive?"
+      ]
+    },
+    {
+      "id": "admin_email",
+      "questions": [
+        "What is the main function of the Email Templates feature?",
+        "How are email templates managed within the system?",
+        "What is the role of email templates in the overall workflow?"
+      ]
+    },
+    {
+      "id": "admin_audit",
+      "questions": [
+        "What is the purpose of the Admin Audit Log?",
+        "Where can the Admin Audit Log be accessed?"
+      ]
+    }
+  ],
+  "teacher_generation_guide_sha256": "bbe201ff18effed05b5cdaea5a6ebb30d0183c5766e4eee3f1bed6f2ca2e3e24"
+}

@@ -28,6 +28,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -102,6 +112,8 @@ async function readLeaveResponse(response: Response) {
   };
 }
 
+type EmployeeLeaveData = Awaited<ReturnType<typeof readLeaveResponse>>;
+
 function formatFileSize(sizeBytes?: number) {
   if (!sizeBytes || sizeBytes <= 0) {
     return "";
@@ -119,6 +131,7 @@ export function LeavePage() {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailsRequest, setDetailsRequest] = useState<LeaveRequest | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<LeaveRequest | null>(null);
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -161,6 +174,47 @@ export function LeavePage() {
       });
     },
   });
+
+  const cancelLeaveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await fetch(`/api/employee/leave/${id}`, { method: "PATCH" });
+      const body = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(body.error ?? "Unable to cancel leave request.");
+      }
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["employee-leave"] });
+      const previous = queryClient.getQueryData<EmployeeLeaveData>(["employee-leave"]);
+      queryClient.setQueryData<EmployeeLeaveData>(["employee-leave"], (current) => current && ({
+        ...current,
+        requests: current.requests.map((request) => request.id === id ? { ...request, overallStatus: "Cancelled" } : request),
+      }));
+      setDetailsRequest(null);
+      return { previous };
+    },
+    onSuccess: () => {
+      toast({ title: "Leave request cancelled", description: "The request remains in your history and is visible to HR." });
+    },
+    onError: (error, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["employee-leave"], context.previous);
+      }
+      toast({
+        title: "Unable to cancel leave",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["employee-leave"] });
+      void queryClient.invalidateQueries({ queryKey: ["staff-leave-management"] });
+    },
+  });
+
+  function cancelLeave(request: LeaveRequest) {
+    setCancelTarget(request);
+  }
 
   const employee = leaveQuery.data?.employee ?? null;
   const credits = leaveQuery.data?.credits ?? [];
@@ -239,6 +293,7 @@ export function LeavePage() {
                   <SelectItem value="Pending">Pending</SelectItem>
                   <SelectItem value="Approved">Approved</SelectItem>
                   <SelectItem value="Disapproved">Disapproved</SelectItem>
+                  <SelectItem value="Cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -255,7 +310,7 @@ export function LeavePage() {
           ) : (
             <div className="space-y-4">
               {filteredRequests.map((request) => (
-                <LeaveApplicationCard key={request.id} req={request} employeeDepartment={employee.department} onOpen={() => setDetailsRequest(request)} />
+                <LeaveApplicationCard key={request.id} req={request} employeeDepartment={employee.department} isCancelling={cancelLeaveMutation.isPending} onOpen={() => setDetailsRequest(request)} onCancel={() => cancelLeave(request)} />
               ))}
             </div>
           )}
@@ -263,34 +318,54 @@ export function LeavePage() {
       </Card>
 
       <FileLeaveDialog open={dialogOpen} onOpenChange={setDialogOpen} employee={employee} credits={credits} isSubmitting={createLeaveMutation.isPending} onFile={(payload) => createLeaveMutation.mutate(payload)} />
-      <LeaveDetailsDialog request={detailsRequest} employeeDepartment={employee.department} onOpenChange={(open) => { if (!open) setDetailsRequest(null); }} />
+      <LeaveDetailsDialog request={detailsRequest} employeeDepartment={employee.department} isCancelling={cancelLeaveMutation.isPending} onCancel={() => { if (detailsRequest) cancelLeave(detailsRequest); }} onOpenChange={(open) => { if (!open) setDetailsRequest(null); }} />
+      <AlertDialog open={!!cancelTarget} onOpenChange={(open) => { if (!open) setCancelTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel leave request?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {cancelTarget && <span className="block font-medium text-foreground">{getLeaveTypeLabel(cancelTarget.leaveType, employee.department)} · {formatDateShort(cancelTarget.dateFrom)}–{formatDateShort(cancelTarget.dateTo)}</span>}
+              <span className="mt-2 block">This request will remain visible to you and HR as Cancelled. HR will no longer be able to approve or disapprove it.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelLeaveMutation.isPending}>Keep Request</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-white hover:bg-destructive/90" disabled={cancelLeaveMutation.isPending} onClick={() => { if (cancelTarget) cancelLeaveMutation.mutate(cancelTarget.id); }}>
+              Cancel Leave Request
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
 
-function LeaveApplicationCard({ req, employeeDepartment, onOpen }: { req: LeaveRequest; employeeDepartment: string; onOpen: () => void }) {
+function LeaveApplicationCard({ req, employeeDepartment, isCancelling, onOpen, onCancel }: { req: LeaveRequest; employeeDepartment: string; isCancelling: boolean; onOpen: () => void; onCancel: () => void }) {
   const color = leaveStatusColor(req.overallStatus);
 
   return (
-    <button onClick={onOpen} className="flex w-full items-center gap-3 overflow-hidden rounded-xl border border-border bg-card p-4 text-left transition-colors hover:bg-accent/40">
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}1a`, color }}>
-        <Plane className="h-5 w-5" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="font-semibold text-foreground">{getLeaveTypeLabel(req.leaveType, employeeDepartment)}</p>
-          <Badge variant="outline" style={{ color, borderColor: color }}>{req.overallStatus}</Badge>
-          {req.attachment ? <Badge variant="outline" className="gap-1"><Paperclip className="h-3 w-3" /> Attachment</Badge> : null}
-          <span className="text-xs text-muted-foreground">- Filed {formatDateShort(req.dateFiled)}</span>
+    <div className="flex w-full items-center gap-2 overflow-hidden rounded-xl border border-border bg-card p-4 transition-colors hover:bg-accent/40">
+      <button onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-label={`View ${getLeaveTypeLabel(req.leaveType, employeeDepartment)} details`}>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}1a`, color }}>
+          <Plane className="h-5 w-5" />
         </div>
-        <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{formatDate(req.dateFrom)} - {formatDate(req.dateTo)} - {formatLeaveDayLabel(req.days)} - {req.reason}</p>
-      </div>
-      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-    </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-semibold text-foreground">{getLeaveTypeLabel(req.leaveType, employeeDepartment)}</p>
+            <Badge variant="outline" style={{ color, borderColor: color }}>{req.overallStatus}</Badge>
+            {req.attachment ? <Badge variant="outline" className="gap-1"><Paperclip className="h-3 w-3" /> Attachment</Badge> : null}
+            <span className="text-xs text-muted-foreground">- Filed {formatDateShort(req.dateFiled)}</span>
+          </div>
+          <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{formatDate(req.dateFrom)} - {formatDate(req.dateTo)} - {formatLeaveDayLabel(req.days)} - {req.reason}</p>
+        </div>
+        {req.overallStatus !== "Pending" && <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />}
+      </button>
+      {req.overallStatus === "Pending" && <Button size="sm" variant="outline" className="shrink-0 text-destructive" onClick={onCancel} disabled={isCancelling}>Cancel</Button>}
+    </div>
   );
 }
 
-function LeaveDetailsDialog({ request, employeeDepartment, onOpenChange }: { request: LeaveRequest | null; employeeDepartment: string; onOpenChange: (open: boolean) => void }) {
+function LeaveDetailsDialog({ request, employeeDepartment, isCancelling, onCancel, onOpenChange }: { request: LeaveRequest | null; employeeDepartment: string; isCancelling: boolean; onCancel: () => void; onOpenChange: (open: boolean) => void }) {
   const { toast } = useToast();
   const [openingAttachment, setOpeningAttachment] = useState(false);
   const stage = request?.stages[0] ?? null;
@@ -298,7 +373,7 @@ function LeaveDetailsDialog({ request, employeeDepartment, onOpenChange }: { req
   const approvalColor = stage?.status === "Approved" ? "#16a34a" : stage?.status === "Disapproved" ? "#dc2626" : "#ca8a04";
   const statusIcon = request?.overallStatus === "Approved"
     ? <CheckCircle2 className="h-4 w-4" />
-    : request?.overallStatus === "Disapproved"
+    : request?.overallStatus === "Disapproved" || request?.overallStatus === "Cancelled"
       ? <AlertCircle className="h-4 w-4" />
       : <Clock3 className="h-4 w-4" />;
 
@@ -342,10 +417,10 @@ function LeaveDetailsDialog({ request, employeeDepartment, onOpenChange }: { req
 
   return (
     <Dialog open={!!request} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 sm:max-w-3xl">
+      <DialogContent className="flex max-h-[85dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
         {request && (
           <>
-            <div className="border-b border-border bg-gradient-to-r from-primary/[0.08] via-background to-amber-50/60 px-6 py-5">
+            <div className="shrink-0 border-b border-border bg-gradient-to-r from-primary/[0.08] via-background to-amber-50/60 px-4 py-5 sm:px-6">
               <DialogHeader className="space-y-3 text-left">
                 <div className="flex items-start justify-between gap-4">
                   <div className="space-y-2">
@@ -365,13 +440,13 @@ function LeaveDetailsDialog({ request, employeeDepartment, onOpenChange }: { req
                     {request.overallStatus}
                   </Badge>
                   <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-semibold" style={{ color: approvalColor, borderColor: `${approvalColor}66`, backgroundColor: `${approvalColor}12` }}>
-                    HR Approval - {stage?.status ?? "Pending"}
+                    HR Approval - {request.overallStatus === "Cancelled" ? "Not reviewed" : stage?.status ?? "Pending"}
                   </Badge>
                 </div>
               </DialogHeader>
             </div>
 
-            <div className="space-y-5 px-6 py-5">
+            <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <DetailCard label="Date From" value={formatDate(request.dateFrom)} />
                 <DetailCard label="Date To" value={formatDate(request.dateTo)} />
@@ -411,10 +486,10 @@ function LeaveDetailsDialog({ request, employeeDepartment, onOpenChange }: { req
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">HR Decision</p>
                   </div>
                   <div className="mt-4 space-y-3">
-                    <DecisionRow label="Status" value={stage?.status ?? "Pending"} valueColor={approvalColor} />
-                    <DecisionRow label="Handled By (HR)" value={stage?.approverName ?? "Not yet reviewed"} />
+                    <DecisionRow label="Status" value={request.overallStatus === "Cancelled" ? "Cancelled before review" : stage?.status ?? "Pending"} valueColor={request.overallStatus === "Cancelled" ? overallColor : approvalColor} />
+                    <DecisionRow label="Handled By (HR)" value={stage?.approverName ?? (request.overallStatus === "Cancelled" ? "Not reviewed" : "Not yet reviewed")} />
                     <DecisionRow label="Review Date" value={stage?.dateSigned ? formatDate(stage.dateSigned) : "-"} />
-                    <DecisionRow label="HR Remarks" value={stage?.reason ?? (stage?.status === "Pending" ? "Waiting for HR review." : "No remarks provided.")} />
+                    <DecisionRow label="HR Remarks" value={stage?.reason ?? (request.overallStatus === "Cancelled" ? "The employee cancelled this request." : stage?.status === "Pending" ? "Waiting for HR review." : "No remarks provided.")} />
                   </div>
                 </div>
               </div>
@@ -422,7 +497,8 @@ function LeaveDetailsDialog({ request, employeeDepartment, onOpenChange }: { req
           </>
         )}
 
-        <DialogFooter className="border-t border-border bg-muted/10 px-6 py-4 sm:justify-end">
+        <DialogFooter className="shrink-0 border-t border-border bg-muted/10 px-4 py-4 sm:justify-end sm:px-6">
+          {request?.overallStatus === "Pending" && <Button variant="destructive" onClick={onCancel} disabled={isCancelling}>{isCancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : null}Cancel Leave Request</Button>}
           <Button variant="outline" className="min-w-24" onClick={() => onOpenChange(false)}>Close</Button>
         </DialogFooter>
       </DialogContent>

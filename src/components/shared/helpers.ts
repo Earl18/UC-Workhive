@@ -28,6 +28,8 @@ export function leaveStatusColor(s: LeaveRequest["overallStatus"]): string {
       return "#ca8a04";
     case "Disapproved":
       return "#dc2626";
+    case "Cancelled":
+      return "#6b7280";
   }
 }
 

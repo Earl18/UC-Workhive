@@ -38,7 +38,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Check, X, FileText, Clock, Loader2, ExternalLink } from "lucide-react";
 
-type StatusFilter = "All" | "Pending" | "Approved" | "Disapproved";
+type StatusFilter = "All" | "Pending" | "Approved" | "Disapproved" | "Cancelled";
 type ModalMode = "view" | "approve" | "disapprove";
 
 type StaffLeaveDashboardResponse = {
@@ -64,6 +64,14 @@ function getHrDecisionStage(request: LeaveRequest) {
 
 function getApprovalLabel(request: LeaveRequest) {
   const stage = getHrDecisionStage(request);
+
+  if (request.overallStatus === "Cancelled") {
+    return {
+      primary: "Cancelled by employee",
+      secondary: "No HR decision required",
+      colorClass: "text-muted-foreground",
+    };
+  }
 
   if (!stage) {
     return {
@@ -257,6 +265,7 @@ export function LeaveManagementPage() {
   const pendingCount = leaveRequests.filter((request) => request.overallStatus === "Pending").length;
   const approvedCount = leaveRequests.filter((request) => request.overallStatus === "Approved").length;
   const disapprovedCount = leaveRequests.filter((request) => request.overallStatus === "Disapproved").length;
+  const cancelledCount = leaveRequests.filter((request) => request.overallStatus === "Cancelled").length;
 
   const isLeaveLoading = leaveQuery.isLoading;
 
@@ -271,7 +280,7 @@ export function LeaveManagementPage() {
         <p className="text-sm text-muted-foreground">Single-stage HR approval queue - UC South Campus HR Department</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Card className={pendingCount > 0 ? "border-gold/40" : ""}>
           <CardContent className="pt-0">
             <p className="text-xs text-muted-foreground">Pending Approvals</p>
@@ -290,6 +299,12 @@ export function LeaveManagementPage() {
             <p className="text-2xl font-bold text-red-600">{disapprovedCount}</p>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="pt-0">
+            <p className="text-xs text-muted-foreground">Cancelled</p>
+            <p className="text-2xl font-bold text-muted-foreground">{cancelledCount}</p>
+          </CardContent>
+        </Card>
       </div>
 
       <Card>
@@ -306,6 +321,7 @@ export function LeaveManagementPage() {
                 { value: "Pending", label: "Pending" },
                 { value: "Approved", label: "Approved" },
                 { value: "Disapproved", label: "Disapproved" },
+                { value: "Cancelled", label: "Cancelled" },
               ]}
             />
             <FilterSelect
@@ -545,14 +561,15 @@ export function LeaveManagementPage() {
                 <p className="mb-2 text-xs font-semibold uppercase text-muted-foreground">HR Approval</p>
                 <div className="flex flex-col gap-3 text-sm sm:flex-row sm:items-start sm:justify-between">
                   <div className="flex items-center gap-2">
-                    <StageStatusIcon status={actionModal.req.stages[0]?.status ?? "Pending"} />
+                    {actionModal.req.overallStatus === "Cancelled" ? <X className="h-4 w-4 text-muted-foreground" /> : <StageStatusIcon status={actionModal.req.stages[0]?.status ?? "Pending"} />}
                     <div>
                       <p className="font-medium">HR Approval</p>
+                      {actionModal.req.overallStatus === "Cancelled" && <p className="text-xs text-muted-foreground">Cancelled by employee before HR review.</p>}
                       {actionModal.req.stages[0]?.approverName && <p className="text-xs text-muted-foreground">Handled by {actionModal.req.stages[0]?.approverName} - {actionModal.req.stages[0]?.dateSigned}</p>}
                       {actionModal.req.stages[0]?.reason && <p className="mt-0.5 text-xs text-red-600">Reason: {actionModal.req.stages[0]?.reason}</p>}
                     </div>
                   </div>
-                  <StageStatusBadge status={actionModal.req.stages[0]?.status ?? "Pending"} />
+                  {actionModal.req.overallStatus === "Cancelled" ? <HexagonBadge color={leaveStatusColor("Cancelled")}>Cancelled</HexagonBadge> : <StageStatusBadge status={actionModal.req.stages[0]?.status ?? "Pending"} />}
                 </div>
               </div>
 

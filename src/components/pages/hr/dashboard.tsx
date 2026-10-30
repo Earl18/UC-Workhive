@@ -174,7 +174,7 @@ export function DashboardPage() {
         .map((record) => record.employeeId),
     );
     const leaveToday = leaveRequests.filter(
-      (request) => request.overallStatus !== "Disapproved" && request.dateFrom <= TODAY && request.dateTo >= TODAY,
+      (request) => request.overallStatus !== "Disapproved" && request.overallStatus !== "Cancelled" && request.dateFrom <= TODAY && request.dateTo >= TODAY,
     );
     const leaveIds = new Set(leaveToday.map((request) => request.employeeId));
     const lateCount = todayAttendance.filter((record) => record.lateMin > 0).length;

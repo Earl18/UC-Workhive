@@ -213,7 +213,7 @@ function toLeaveRequest(row: LeaveRequestRow): LeaveRequest {
     stages: normalizeStages(row.stages),
     currentStageIndex: 0,
     overallStatus:
-      row.overallStatus === "Approved" || row.overallStatus === "Disapproved" ? row.overallStatus : "Pending",
+      row.overallStatus === "Approved" || row.overallStatus === "Disapproved" || row.overallStatus === "Cancelled" ? row.overallStatus : "Pending",
   };
 }
 
@@ -357,6 +357,26 @@ export async function getEmployeeLeaveRequestForUser(
   }
 
   return toLeaveRequest(row as LeaveRequestRow);
+}
+
+export async function cancelEmployeeLeaveRequestForUser(
+  user: Pick<AuthenticatedPortalUser, "employeeId" | "email">,
+  requestId: string,
+) {
+  const employeeId = user.employeeId ?? (await getEmployeeMasterRecordForUser(user))?.id;
+  if (!employeeId) {
+    throw new Error("No employee record found.");
+  }
+
+  const result = await db.leaveRequestRecord.updateMany({
+    where: { id: requestId, employeeId, overallStatus: "Pending" },
+    data: { overallStatus: "Cancelled" },
+  });
+  if (result.count === 0) {
+    throw new Error("Only your pending leave requests can be cancelled.");
+  }
+
+  return { id: requestId, employeeId, overallStatus: "Cancelled" as const };
 }
 
 export async function getStaffLeaveDashboard() {
@@ -585,8 +605,8 @@ export async function updateLeaveRequestStageForStaff(
     overallStatus = "Approved";
   }
 
-  const updated = await db.leaveRequestRecord.update({
-    where: { id },
+  const result = await db.leaveRequestRecord.updateMany({
+    where: { id, overallStatus: "Pending" },
     data: {
       stages: stages as unknown as Prisma.InputJsonValue,
       currentStageIndex: 0,
@@ -594,6 +614,11 @@ export async function updateLeaveRequestStageForStaff(
     },
   });
 
+  if (result.count === 0) {
+    throw new Error("This leave request is no longer pending.");
+  }
+
+  const updated = await db.leaveRequestRecord.findUniqueOrThrow({ where: { id } });
   return toLeaveRequest(updated as LeaveRequestRow);
 }
 

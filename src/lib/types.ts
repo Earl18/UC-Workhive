@@ -216,7 +216,7 @@ export type LeaveRequest = {
   attachment?: LeaveRequestAttachment;
   stages: LeaveApprovalStage[];
   currentStageIndex: number;
-  overallStatus: "Pending" | "Approved" | "Disapproved";
+  overallStatus: "Pending" | "Approved" | "Disapproved" | "Cancelled";
 };
 
 export type HolidayType = "Regular Holiday" | "Special Non-Working Day" | "Special Working Holiday" | "Institution Holiday";

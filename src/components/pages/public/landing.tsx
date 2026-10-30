@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useWorkHive } from "@/lib/store";
 import { usePublicSiteStats } from "@/hooks/use-public-site-stats";
 import { useSystemSettings } from "@/hooks/use-system-settings";
@@ -14,21 +13,13 @@ import {
   ArrowRight, ArrowUp, Hexagon, FileText, Clock, Award, Building2, Quote,
 } from "lucide-react";
 
-export function LandingPage() {
+export function LandingPage({ showScrollToTop }: { showScrollToTop: boolean }) {
   const { setView } = useWorkHive();
-  const [showScrollToTop, setShowScrollToTop] = useState(false);
   const { data } = useSystemSettings();
   const statsQuery = usePublicSiteStats();
   const settings = data?.settings;
   const organizationName = settings?.organizationName ?? "University of Cebu - South Campus";
   const stats = statsQuery.data;
-
-  useEffect(() => {
-    const updateScrollToTop = () => setShowScrollToTop(window.scrollY > 400);
-    updateScrollToTop();
-    window.addEventListener("scroll", updateScrollToTop, { passive: true });
-    return () => window.removeEventListener("scroll", updateScrollToTop);
-  }, []);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -274,18 +265,18 @@ export function LandingPage() {
       </main>
 
       <PublicFooter />
-      {showScrollToTop && (
-        <button
-          type="button"
-          className="hexagon fixed bottom-6 right-6 z-50 flex h-[72px] w-16 flex-col items-center justify-center gap-0.5 bg-gradient-to-br from-blue-700 to-blue-900 text-white drop-shadow-lg transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          aria-label="Scroll to top"
-          title="Scroll to top"
-        >
-          <ArrowUp className="h-5 w-5" />
-          <span className="text-[10px] font-semibold leading-none">Top</span>
-        </button>
-      )}
+      <button
+        type="button"
+        className={`hexagon fixed bottom-4 right-3 z-50 flex h-[72px] w-16 flex-col items-center justify-center gap-0.5 bg-gradient-to-br from-blue-700 to-blue-900 text-white drop-shadow-lg transition-[opacity,transform] duration-300 ease-out hover:scale-105 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold sm:bottom-5 sm:right-[18px] ${showScrollToTop ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-3 opacity-0"}`}
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        aria-label="Scroll to top"
+        aria-hidden={!showScrollToTop}
+        tabIndex={showScrollToTop ? 0 : -1}
+        title="Scroll to top"
+      >
+        <ArrowUp className="h-5 w-5" />
+        <span className="text-[10px] font-semibold leading-none">Top</span>
+      </button>
     </div>
   );
 }

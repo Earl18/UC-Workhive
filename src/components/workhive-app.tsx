@@ -9,6 +9,7 @@ import { FirstLoginModal } from "@/components/first-login-modal";
 import { AIAssistant } from "@/components/shared/ai-assistant";
 import { useFeatureToggles } from "@/hooks/use-feature-toggles";
 import { useHolidayRecords } from "@/hooks/use-holidays";
+import { useBackToTopVisible } from "@/hooks/use-back-to-top-visible";
 
 // Public pages
 import { LandingPage } from "@/components/pages/public/landing";
@@ -222,6 +223,7 @@ function PersistentHrAttendancePages({ activeView }: { activeView: (typeof PERSI
 }
 
 export function WorkHiveApp() {
+  const showBackToTop = useBackToTopVisible();
   useTableSwipeProtection();
   const { currentUser, view, selectedVideoApplicantId, hydrateSession, setFeatureToggles, setHolidays, featureToggles, setView } = useWorkHive();
   const [authReady, setAuthReady] = useState(false);
@@ -341,21 +343,21 @@ export function WorkHiveApp() {
   if (!currentUser) {
     const publicPage = (() => {
       switch (view) {
-        case "public:landing": return <LandingPage />;
+        case "public:landing": return <LandingPage showScrollToTop={showBackToTop} />;
         case "public:about": return <AboutPage />;
         case "public:careers": return <CareersPage />;
         case "public:privacy": return <PrivacyPage />;
         case "public:job-detail": return <JobDetailPage />;
         case "public:login": return <LoginPage />;
         case "public:forgot-password": return <ForgotPasswordPage />;
-        default: return <LandingPage />;
+        default: return <LandingPage showScrollToTop={showBackToTop} />;
       }
     })();
 
     return (
       <>
         {publicPage}
-        {view !== "public:login" && view !== "public:forgot-password" && <AIAssistant context="public" />}
+        {view !== "public:login" && view !== "public:forgot-password" && <AIAssistant context="public" raised={view === "public:landing" && showBackToTop} />}
       </>
     );
   }

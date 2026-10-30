@@ -64,12 +64,12 @@ export function LandingPage() {
                   records into one centralized, role-based system. Less paper. More
                   progress.
                 </p>
-                <div className="mt-8 flex flex-wrap gap-3">
-                  <Button size="lg" onClick={() => setView("public:login")}>
-                    Sign In to WorkHive <ArrowRight className="ml-2 h-4 w-4" />
+                <div className="mt-8 flex gap-2 sm:flex-wrap sm:gap-3">
+                  <Button size="lg" className="min-w-0 flex-1 px-2 text-xs has-[>svg]:px-2 sm:flex-none sm:px-6 sm:text-sm sm:has-[>svg]:px-4" onClick={() => setView("public:login")}>
+                    Sign In to WorkHive <ArrowRight className="ml-2 hidden h-4 w-4 sm:block" />
                   </Button>
-                  <Button size="lg" variant="outline" onClick={() => setView("public:careers")}>
-                    <Briefcase className="mr-2 h-4 w-4" /> View Job Postings
+                  <Button size="lg" variant="outline" className="min-w-0 flex-1 px-2 text-xs has-[>svg]:px-2 sm:flex-none sm:px-6 sm:text-sm sm:has-[>svg]:px-4" onClick={() => setView("public:careers")}>
+                    <Briefcase className="mr-2 hidden h-4 w-4 sm:block" /> View Job Postings
                   </Button>
                 </div>
                 <div className="mt-10 flex items-center gap-6">

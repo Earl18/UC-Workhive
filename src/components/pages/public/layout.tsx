@@ -29,7 +29,7 @@ export function PublicHeader() {
   return (
     <div className="h-16 shrink-0">
       <header className="fixed inset-x-0 top-0 z-40 border-b border-border bg-card/85 backdrop-blur supports-[backdrop-filter]:bg-card/70">
-      <div className="mx-auto grid h-16 max-w-7xl grid-cols-[1fr_auto_1fr] items-center px-4 sm:px-6">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 xl:grid xl:grid-cols-[1fr_auto_1fr]">
         <button onClick={() => navigateToTop("public:landing")} className="flex items-center justify-self-start">
           <WorkHiveLogo size={36} />
         </button>

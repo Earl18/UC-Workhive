@@ -1,0 +1,3 @@
+# The trained model verifies these approved inputs by their exact byte hashes.
+hivebot-ai/knowledge.json -text whitespace=cr-at-eol
+hivebot-ai/data/approved_teacher_questions.json -text whitespace=cr-at-eol

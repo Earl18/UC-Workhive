@@ -52,9 +52,13 @@ export async function sendTemplatedEmail(input: {
   if (input.type === "Password Reset" && (!resetUrl || (resetUrl.protocol !== "https:" && !localLoopbackLink))) {
     throw new Error("Password Reset email requires a secure reset link.");
   }
-  const body = input.type === "Password Reset" && resetLink && !rendered.body.includes(resetLink)
+  let body = input.type === "Password Reset" && resetLink && !rendered.body.includes(resetLink)
     ? `${rendered.body}\n\nReset your password: ${resetLink}`
     : rendered.body;
+  const temporaryPassword = input.context.event?.temporaryPassword;
+  if (input.type === "Welcome Email" && typeof temporaryPassword === "string" && !body.includes(temporaryPassword)) {
+    body += `\n\nYour temporary password: ${temporaryPassword}\nChange it when you first sign in.`;
+  }
   const contactEmail = settings.hrEmail?.trim();
   if (!contactEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail)) throw new Error("System Settings HR email is not valid for replies.");
   if (rendered.unresolved.length) {
@@ -88,6 +92,9 @@ export async function sendTemplatedEmail(input: {
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("Brevo authorization failed (HTTP 401). Check BREVO_API_KEY, transactional email permission, and authorized IPs.");
+    }
     throw new Error(`Brevo rejected ${input.type} email (HTTP ${response.status}).`);
   }
   const result = await response.json() as { messageId?: string };
@@ -109,6 +116,7 @@ export function emailDeliveryErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : "";
   if (message.includes("unresolved placeholders")) return message;
   if (message.startsWith("Brevo rejected")) return message;
+  if (message.startsWith("Brevo authorization failed")) return message;
   if (message.startsWith("Brevo is not configured")) return message;
   if (message.startsWith("System Settings HR email")) return message;
   if (message.startsWith("Recipient email is invalid")) return message;

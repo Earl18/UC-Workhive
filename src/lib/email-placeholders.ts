@@ -14,6 +14,7 @@ const DEFAULTS: Array<[string, PlaceholderSource, string]> = [
   ["Leave Type", "leave", "leaveType"], ["Hours", "event", "hours"],
   ["Reason", "event", "reason"], ["Platform", "event", "platform"],
   ["Location/Link", "event", "locationLink"], ["Reset Link", "event", "resetLink"],
+  ["Temporary Password", "event", "temporaryPassword"],
   ["Holiday Name", "holiday", "name"], ["Holiday Type", "holiday", "type"],
   ["New Date", "event", "newDate"], ["New Time", "event", "newTime"],
 ];

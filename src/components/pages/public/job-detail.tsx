@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import Script from "next/script";
 import { motion } from "framer-motion";
 import { useWorkHive } from "@/lib/store";
 import { useSystemSettings } from "@/hooks/use-system-settings";
 import { usePublicJobPosting } from "@/hooks/use-job-postings";
-import { useApplicantTemplate } from "@/hooks/use-applicant-template";
 import { PublicHeader, PublicFooter } from "./layout";
 import { HoneycombBg } from "@/components/shared/hexagon";
 import { Button } from "@/components/ui/button";
@@ -16,8 +16,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { APPLICATION_REQUIREMENT_ACCEPT, APPLICATION_REQUIREMENT_MAX_MB } from "@/lib/employee-document-config";
-import { APPLICANT_REQUIREMENT_GROUPS, APPLICANT_UPLOAD_REQUIREMENTS, GOVERNMENT_STATUTORY_NUMBER_FIELDS } from "@/lib/application-requirements";
-import { AlertCircle, ArrowLeft, Briefcase, Building2, CalendarClock, CheckCircle2, FileCheck2, FileText, Loader2, MapPin, Send, Upload, type LucideIcon } from "lucide-react";
+import { APPLICANT_UPLOAD_REQUIREMENTS } from "@/lib/application-requirements";
+import { AlertCircle, ArrowLeft, Briefcase, Building2, CalendarClock, CheckCircle2, FileText, Loader2, MapPin, Send, Upload, type LucideIcon } from "lucide-react";
 import type { Applicant, JobPosting, JobQualification } from "@/lib/types";
 
 type ApplyFormState = {
@@ -25,23 +25,23 @@ type ApplyFormState = {
   email: string;
   contact: string;
   message: string;
-  sssNumber: string;
-  tinNumber: string;
-  pagIbigNumber: string;
-  philHealthNumber: string;
 };
 
 type RequirementUploadState = Record<string, File[]>;
+type TurnstileApi = {
+  render: (container: HTMLElement, options: { sitekey: string; action: string; callback: (token: string) => void; "expired-callback": () => void; "error-callback": () => void }) => string;
+  reset: (widgetId: string) => void;
+  remove: (widgetId: string) => void;
+};
+declare global { interface Window { turnstile?: TurnstileApi } }
+
+const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
 
 const EMPTY_FORM: ApplyFormState = {
   name: "",
   email: "",
   contact: "",
   message: "",
-  sssNumber: "",
-  tinNumber: "",
-  pagIbigNumber: "",
-  philHealthNumber: "",
 };
 
 function createEmptyUploadState(): RequirementUploadState {
@@ -71,11 +71,7 @@ function isApplyFormComplete(form: ApplyFormState) {
   return Boolean(
     form.name.trim() &&
     form.email.trim() &&
-    form.contact.trim() &&
-    form.sssNumber.trim() &&
-    form.tinNumber.trim() &&
-    form.pagIbigNumber.trim() &&
-    form.philHealthNumber.trim(),
+    form.contact.trim(),
   );
 }
 
@@ -83,7 +79,6 @@ export function JobDetailPage() {
   const { selectedJobId, setView, addApplicant } = useWorkHive();
   const { data } = useSystemSettings();
   const jobQuery = usePublicJobPosting(selectedJobId);
-  const applicantTemplateQuery = useApplicantTemplate();
   const settings = data?.settings;
   const organizationName = settings?.organizationName ?? "University of Cebu - South Campus";
   const { toast } = useToast();
@@ -92,6 +87,26 @@ export function JobDetailPage() {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState<ApplyFormState>(EMPTY_FORM);
   const [uploadedRequirements, setUploadedRequirements] = useState<RequirementUploadState>(() => createEmptyUploadState());
+  const [turnstileReady, setTurnstileReady] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileContainerRef = useRef<HTMLDivElement>(null);
+  const turnstileWidgetRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!dialogOpen || !turnstileSiteKey || !turnstileReady || !turnstileContainerRef.current || !window.turnstile) return;
+    const widgetId = window.turnstile.render(turnstileContainerRef.current, {
+      sitekey: turnstileSiteKey,
+      action: "job_application",
+      callback: setTurnstileToken,
+      "expired-callback": () => setTurnstileToken(""),
+      "error-callback": () => setTurnstileToken(""),
+    });
+    turnstileWidgetRef.current = widgetId;
+    return () => {
+      window.turnstile?.remove(widgetId);
+      turnstileWidgetRef.current = null;
+    };
+  }, [dialogOpen, turnstileReady]);
 
   const job = jobQuery.data
     ? {
@@ -105,9 +120,8 @@ export function JobDetailPage() {
     : null;
 
   const uploadedCount = APPLICANT_UPLOAD_REQUIREMENTS.filter((requirement) => (uploadedRequirements[requirement.key] ?? []).length > 0).length;
-  const applicantTemplate = applicantTemplateQuery.data?.template;
   const allRequirementsUploaded = uploadedCount === APPLICANT_UPLOAD_REQUIREMENTS.length;
-  const canSubmit = Boolean(job?.active) && isApplyFormComplete(form) && allRequirementsUploaded && !submitting;
+  const canSubmit = Boolean(job?.active) && isApplyFormComplete(form) && allRequirementsUploaded && (!turnstileSiteKey || Boolean(turnstileToken)) && !submitting;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -123,10 +137,7 @@ export function JobDetailPage() {
       payload.set("email", form.email.trim());
       payload.set("contact", form.contact.trim());
       payload.set("message", form.message.trim());
-      payload.set("sssNumber", form.sssNumber.trim());
-      payload.set("tinNumber", form.tinNumber.trim());
-      payload.set("pagIbigNumber", form.pagIbigNumber.trim());
-      payload.set("philHealthNumber", form.philHealthNumber.trim());
+      if (turnstileToken) payload.set("turnstileToken", turnstileToken);
 
       APPLICANT_UPLOAD_REQUIREMENTS.forEach((requirement) => {
         const files = uploadedRequirements[requirement.key] ?? [];
@@ -157,8 +168,11 @@ export function JobDetailPage() {
       });
       setForm(EMPTY_FORM);
       setUploadedRequirements(createEmptyUploadState());
+      setTurnstileToken("");
     } catch (error) {
       setSubmitting(false);
+      setTurnstileToken("");
+      if (turnstileWidgetRef.current) window.turnstile?.reset(turnstileWidgetRef.current);
       toast({
         title: "Unable to submit application",
         description: error instanceof Error ? error.message : "Please try again.",
@@ -235,6 +249,7 @@ export function JobDetailPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
+      {turnstileSiteKey ? <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" strategy="afterInteractive" onReady={() => setTurnstileReady(true)} /> : null}
       <PublicHeader />
       <main className="relative flex-1 overflow-hidden">
         <HoneycombBg />
@@ -271,7 +286,7 @@ export function JobDetailPage() {
                     <DialogHeader>
                       <DialogTitle className="text-xl text-primary">Apply for: {job.title}</DialogTitle>
                       <DialogDescription>
-                        Enter your applicant details, statutory numbers, downloadable form templates, and all required uploads before submission.
+                        Enter your contact details and upload an application letter and résumé.
                       </DialogDescription>
                     </DialogHeader>
 
@@ -298,40 +313,11 @@ export function JobDetailPage() {
                         </div>
                       </div>
 
-                      <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
-                        <div className="mb-3 flex items-center gap-2">
-                          <FileCheck2 className="h-4 w-4 text-primary" />
-                          <h3 className="text-sm font-semibold text-primary">Government Statutory Numbers</h3>
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          {GOVERNMENT_STATUTORY_NUMBER_FIELDS.map((field) => (
-                            <div key={field.key} className="space-y-1.5">
-                              <Label htmlFor={field.key}>{field.label} Number *</Label>
-                              <Input
-                                id={field.key}
-                                required
-                                value={form[field.key]}
-                                onChange={(event) => setForm({ ...form, [field.key]: event.target.value })}
-                                placeholder={`Enter ${field.label} number`}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
                       <div className="rounded-lg border border-border/60 bg-background p-4">
-                        {applicantTemplate?.storagePath ? (
-                          <div className="rounded-lg border border-dashed border-primary/25 bg-primary/5 p-3">
-                            <p className="text-sm font-semibold text-primary">UC Application Form Template</p>
-                            <p className="mt-1 text-xs text-muted-foreground">Download the latest UC Application Form here, fill it out, then upload it in the first requirement slot below.</p>
-                            <a href="/api/public/applicant-template/download" target="_blank" rel="noreferrer" className="mt-3 inline-flex text-sm font-medium text-primary hover:text-primary/80 hover:underline">Download UC Application Form</a>
-                          </div>
-                        ) : null}
-
                         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <h3 className="text-sm font-semibold text-primary">Requirements Uploader</h3>
-                            <p className="text-xs text-muted-foreground">All {APPLICANT_UPLOAD_REQUIREMENTS.length} requirement items are required. Some document types can accept multiple files and everything will be bundled into one ZIP after submission.</p>
+                            <p className="text-xs text-muted-foreground">Upload an application letter and résumé. Both files will be bundled into one ZIP after submission.</p>
                           </div>
                           <Badge className={allRequirementsUploaded ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-100" : "bg-amber-100 text-amber-700 hover:bg-amber-100"}>
                             {uploadedCount}/{APPLICANT_UPLOAD_REQUIREMENTS.length} uploaded
@@ -339,36 +325,30 @@ export function JobDetailPage() {
                         </div>
 
                         <div className="mt-4 space-y-3">
-                          {APPLICANT_UPLOAD_REQUIREMENTS.map((requirement, index) => {
+                          {APPLICANT_UPLOAD_REQUIREMENTS.map((requirement) => {
                             const files = uploadedRequirements[requirement.key] ?? [];
                             const inputId = `upload-${requirement.key}`;
-                            const allowMultiple = "allowMultiple" in requirement && requirement.allowMultiple;
-                            const hasTemplate = "templateKey" in requirement && Boolean(requirement.templateKey);
 
                             return (
                               <div key={requirement.key} className="rounded-lg border border-border/60 bg-muted/20 p-3">
                                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                                   <div className="min-w-0">
                                     <div className="flex items-center gap-2 text-base font-semibold text-foreground">
-                                      <span className="text-primary">{String(index + 1).padStart(2, "0")}</span>
                                       <span>{requirement.label}</span>
                                     </div>
                                     {requirement.key === "application-letter" ? <p className="mt-1 text-sm font-medium text-muted-foreground">See full text on job profile.</p> : null}
-                                    {hasTemplate && applicantTemplate?.storagePath ? (
-                                      <a href="/api/public/applicant-template/download" target="_blank" rel="noreferrer" className="mt-1 inline-flex text-sm font-medium text-primary hover:text-primary/80 hover:underline">Download template</a>
-                                    ) : null}
 
                                     <p className="mt-1 text-sm text-muted-foreground">
                                       {files.length > 0
                                         ? files.length === 1
                                           ? `Selected: ${files[0].name}`
                                           : `Selected: ${files.length} files`
-                                        : `${allowMultiple ? "Upload one or more files." : "Upload one file."} Accepted formats: PDF, JPG, JPEG, PNG up to ${APPLICATION_REQUIREMENT_MAX_MB} MB each`}
+                                        : `Upload one file. Accepted formats: PDF, JPG, JPEG, PNG up to ${APPLICATION_REQUIREMENT_MAX_MB} MB`}
                                     </p>
                                   </div>
                                   <div className="flex items-center gap-2">
                                     {files.length > 0 ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Upload className="h-4 w-4 text-muted-foreground" />}
-                                    <Input id={inputId} type="file" multiple={allowMultiple} accept={APPLICATION_REQUIREMENT_ACCEPT} onChange={(event) => handleRequirementUpload(requirement.key, event.target.files)} className="max-w-xs" />
+                                    <Input id={inputId} type="file" accept={APPLICATION_REQUIREMENT_ACCEPT} onChange={(event) => handleRequirementUpload(requirement.key, event.target.files)} className="max-w-xs" />
                                   </div>
                                 </div>
                               </div>
@@ -376,6 +356,12 @@ export function JobDetailPage() {
                           })}
                         </div>
                       </div>
+                      {turnstileSiteKey ? (
+                        <div className="space-y-1">
+                          <div ref={turnstileContainerRef} className="min-h-[65px]" aria-label="Security verification" />
+                          <p className="text-xs text-muted-foreground">Complete the security check to submit your application.</p>
+                        </div>
+                      ) : null}
                       <DialogFooter>
                         <Button className="w-full sm:w-auto" type="button" variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>Cancel</Button>
                         <Button className="w-full sm:w-auto bg-primary text-white hover:bg-primary/90" type="submit" disabled={!canSubmit}>
@@ -446,26 +432,16 @@ export function JobDetailPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <p className="text-sm text-muted-foreground">
-                      Applicants must encode the four statutory numbers in the form and upload all requirement items listed below.
+                      Submit these two documents with your application.
                     </p>
-                    {APPLICANT_REQUIREMENT_GROUPS.map((group) => (
-                      <div key={group.title} className="rounded-lg border border-border/60 bg-muted/20 p-4">
-                        <div className="flex items-center justify-between gap-3">
-                          <h4 className="text-sm font-semibold text-primary">{group.title}</h4>
-                          <Badge className="bg-primary/10 text-primary hover:bg-primary/10">
-                            {group.uploadRequired ? "Upload Required" : "Form Field"}
-                          </Badge>
-                        </div>
-                        <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-                          {group.items.map((item) => (
-                            <li key={item.key} className="flex items-start gap-2">
-                              <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                              <span>{item.key === "application-letter" ? "Application Letter addressed to: Atty. Augusto W. Go (University Chairman) through: Ms. Remelie T. Bongcawil (HR Generalist)" : item.label}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
+                    <ul className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground">
+                      {APPLICANT_UPLOAD_REQUIREMENTS.map((item) => (
+                        <li key={item.key} className="flex items-start gap-2">
+                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                          <span>{item.key === "application-letter" ? "Application Letter addressed to: Atty. Augusto W. Go (University Chairman) through: Ms. Remelie T. Bongcawil (HR Generalist)" : item.label}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </CardContent>
                 </Card>
               </div>
@@ -481,7 +457,7 @@ export function JobDetailPage() {
                     <SummaryRow icon={MapPin} label="Location" value={organizationName} />
                     <SummaryRow icon={CalendarClock} label="Date Posted" value={formatDate(job.postedAt)} />
                     <SummaryRow icon={FileText} label="Qualifications" value={`${job.qualifications.length} required`} />
-                    <SummaryRow icon={Upload} label="Upload Pack" value={`${APPLICANT_UPLOAD_REQUIREMENTS.length} requirement items`} />
+                    <SummaryRow icon={Upload} label="Required Uploads" value="Application letter and résumé" />
                   </CardContent>
                 </Card>
 
@@ -492,7 +468,7 @@ export function JobDetailPage() {
                     </div>
                     <h3 className="text-base font-semibold text-primary">{job.active ? "Ready to apply?" : "This posting is closed"}</h3>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {job.active ? "Prepare the required forms, supporting documents, and your statutory numbers, then submit one validated application package." : "You can still review the role details, but applications are no longer being accepted."}
+                      {job.active ? "Prepare your application letter and résumé, then submit your application." : "You can still review the role details, but applications are no longer being accepted."}
                     </p>
                     <Button onClick={() => setDialogOpen(true)} disabled={!job.active} className="mt-4 w-full bg-primary text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60">
                       {job.active ? "Apply Now" : "Posting Closed"}

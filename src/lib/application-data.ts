@@ -20,10 +20,6 @@ type StoredApplicantSubmission = {
   email: string;
   contact: string;
   message: string;
-  sssNumber: string;
-  tinNumber: string;
-  pagIbigNumber: string;
-  philHealthNumber: string;
   jobId: string;
   positionApplied: string;
   department: string;
@@ -41,6 +37,18 @@ type StoredApplicantSubmission = {
 
 const JOB_POSTING_AUTHOR_ID = "workhive-job-postings";
 const APPLICATION_AUTHOR_ID = "workhive-applications";
+export class DuplicateJobApplicationError extends Error {}
+
+export async function hasSubmittedJobApplication(jobId: string, email: string) {
+  const matches = await db.$queryRaw<Array<{ id: string }>>`
+    SELECT "id" FROM "Post"
+    WHERE "authorId" = ${APPLICATION_AUTHOR_ID}
+      AND "content"::jsonb ->> 'jobId' = ${jobId}
+      AND lower("content"::jsonb ->> 'email') = ${email.trim().toLowerCase()}
+    LIMIT 1
+  `;
+  return matches.length > 0;
+}
 const APPLICANT_STAGES: ApplicantStage[] = ["New", "Screening", "Interview", "Offer", "Hired", "Rejected"];
 
 function normalizeApplicantStage(value: unknown): ApplicantStage {
@@ -146,10 +154,6 @@ function parseStoredApplicantSubmission(content: string | null): StoredApplicant
       email: String(parsed.email ?? "").trim(),
       contact: String(parsed.contact ?? "").trim(),
       message: String(parsed.message ?? "").trim(),
-      sssNumber: String(parsed.sssNumber ?? "").trim(),
-      tinNumber: String(parsed.tinNumber ?? "").trim(),
-      pagIbigNumber: String(parsed.pagIbigNumber ?? "").trim(),
-      philHealthNumber: String(parsed.philHealthNumber ?? "").trim(),
       jobId: String(parsed.jobId ?? "").trim(),
       positionApplied: String(parsed.positionApplied ?? "").trim(),
       department: String(parsed.department ?? "").trim(),
@@ -182,10 +186,6 @@ function toApplicant(row: { id: string; content: string | null }): Applicant | n
     email: parsed.email,
     phone: parsed.contact,
     contact: parsed.contact,
-    sssNumber: parsed.sssNumber,
-    tinNumber: parsed.tinNumber,
-    pagIbigNumber: parsed.pagIbigNumber,
-    philHealthNumber: parsed.philHealthNumber,
     positionApplied: parsed.positionApplied,
     department: parsed.department,
     jobId: parsed.jobId,
@@ -215,10 +215,6 @@ export async function submitApplicantApplication(input: {
   email: string;
   contact: string;
   message?: string;
-  sssNumber: string;
-  tinNumber: string;
-  pagIbigNumber: string;
-  philHealthNumber: string;
   jobId: string;
   requirements: NonNullable<Applicant["requirements"]>;
   requirementsArchiveName: string;
@@ -230,6 +226,8 @@ export async function submitApplicantApplication(input: {
   const appliedDate = submittedAt.slice(0, 10);
 
   const applicant = await db.$transaction(async (tx) => {
+    // Lock the posting so concurrent submissions cannot both pass the duplicate check.
+    await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "Post" WHERE "id" = ${input.jobId} FOR UPDATE`;
     const jobRow = await tx.post.findFirst({
       where: { id: input.jobId, authorId: JOB_POSTING_AUTHOR_ID },
       select: { id: true, title: true, published: true, content: true },
@@ -243,6 +241,15 @@ export async function submitApplicantApplication(input: {
       throw new Error("This job posting is no longer accepting applications.");
     }
 
+    const existing = await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT "id" FROM "Post"
+      WHERE "authorId" = ${APPLICATION_AUTHOR_ID}
+        AND "content"::jsonb ->> 'jobId' = ${input.jobId}
+        AND lower("content"::jsonb ->> 'email') = ${input.email.trim().toLowerCase()}
+      LIMIT 1
+    `;
+    if (existing.length) throw new DuplicateJobApplicationError("An application from this email has already been submitted for this job.");
+
     const jobPosting = parseStoredJobPosting(jobRow.content);
     if (!jobPosting) {
       throw new Error("Job posting details are incomplete.");
@@ -254,10 +261,6 @@ export async function submitApplicantApplication(input: {
       email: input.email,
       contact: input.contact,
       message: input.message?.trim() ?? "",
-      sssNumber: input.sssNumber,
-      tinNumber: input.tinNumber,
-      pagIbigNumber: input.pagIbigNumber,
-      philHealthNumber: input.philHealthNumber,
       jobId: jobRow.id,
       positionApplied: jobRow.title,
       department: jobPosting.department,

@@ -544,10 +544,6 @@ export function ApplicationsPage() {
                     <InfoField label="Position Applied" value={jobTitleById(jobPostings, activeDetailApplicant.jobId)} />
                     <InfoField label="Date Applied" value={formatDate(activeDetailApplicant.appliedDate ?? activeDetailApplicant.submittedAt ?? "")} />
                     <InfoField label="Current Stage" value={activeDetailApplicant.stage} />
-                    <InfoField label="SSS Number" value={activeDetailApplicant.sssNumber ?? "-"} />
-                    <InfoField label="TIN Number" value={activeDetailApplicant.tinNumber ?? "-"} />
-                    <InfoField label="PAG-IBIG Number" value={activeDetailApplicant.pagIbigNumber ?? "-"} />
-                    <InfoField label="PHILHEALTH Number" value={activeDetailApplicant.philHealthNumber ?? "-"} />
                   </div>
                   <div className="mt-3 rounded-xl border border-border bg-slate-50 p-3">
                     <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Applicant Message</div>

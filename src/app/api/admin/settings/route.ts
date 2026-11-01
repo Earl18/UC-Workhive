@@ -3,14 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getSystemSettings, getSystemSettingsHealth, logAuditEvent } from "@/lib/admin-data";
-import { ensureAuthUserWithPassword } from "@/lib/auth-admin";
-import {
-  getPasswordVersionFieldForRole,
-  PASSWORD_REQUIREMENTS_MESSAGE,
-  validatePasswordRequirements,
-} from "@/lib/role-default-passwords";
 import { normalizeAcademicYear } from "@/lib/system-settings";
-import type { Role } from "@/lib/types";
 
 function toInt(value: number, fallback: number) {
   const parsed = Number(value);
@@ -36,23 +29,8 @@ type SystemSettingsRow = {
   paternityLeaveDays: number;
   maternityLeaveDays: number;
   leaveWithoutPayDays: number;
-  employeeDefaultPassword: string;
-  hrDefaultPassword: string;
-  adminDefaultPassword: string;
-  employeePasswordVersion: number;
-  hrPasswordVersion: number;
-  adminPasswordVersion: number;
   updatedAt: Date;
 };
-
-function isMissingColumnError(error: unknown, columnName?: string) {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2010") {
-    return false;
-  }
-
-  const meta = error.meta as { code?: string; message?: string } | undefined;
-  return meta?.code === "42703" && (!columnName || String(meta.message ?? "").includes(columnName));
-}
 
 function toSettingsResponse(row: SystemSettingsRow) {
   return {
@@ -74,15 +52,8 @@ function toSettingsResponse(row: SystemSettingsRow) {
     paternityLeaveDays: row.paternityLeaveDays,
     maternityLeaveDays: row.maternityLeaveDays,
     leaveWithoutPayDays: row.leaveWithoutPayDays,
-    employeeDefaultPassword: row.employeeDefaultPassword,
-    hrDefaultPassword: row.hrDefaultPassword,
-    adminDefaultPassword: row.adminDefaultPassword,
     updatedAt: row.updatedAt.toISOString(),
   };
-}
-
-function getNextVersion(current: number, changed: boolean) {
-  return changed ? current + 1 : current;
 }
 
 export async function GET(request: NextRequest) {
@@ -124,12 +95,7 @@ export async function PUT(request: NextRequest) {
     paternityLeaveDays: number;
     maternityLeaveDays: number;
     leaveWithoutPayDays: number;
-    employeeDefaultPassword?: string;
-    hrDefaultPassword?: string;
-    adminDefaultPassword?: string;
   };
-
-  let current: SystemSettingsRow;
 
   try {
     const rows = await db.$queryRaw<SystemSettingsRow[]>`
@@ -152,12 +118,6 @@ export async function PUT(request: NextRequest) {
         "paternityLeaveDays",
         "maternityLeaveDays",
         "leaveWithoutPayDays",
-        "employeeDefaultPassword",
-        "hrDefaultPassword",
-        "adminDefaultPassword",
-        "employeePasswordVersion",
-        "hrPasswordVersion",
-        "adminPasswordVersion",
         "updatedAt"
       FROM "SystemSettings"
       WHERE "id" = 'default'
@@ -168,7 +128,6 @@ export async function PUT(request: NextRequest) {
       throw new Error("Unable to load current settings.");
     }
 
-    current = rows[0];
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2021") {
       return NextResponse.json(
@@ -179,36 +138,6 @@ export async function PUT(request: NextRequest) {
 
     throw error;
   }
-
-  const nextEmployeePassword = body.employeeDefaultPassword?.trim() || current.employeeDefaultPassword;
-  const nextHrPassword = body.hrDefaultPassword?.trim() || current.hrDefaultPassword;
-  const nextAdminPassword = body.adminDefaultPassword?.trim() || current.adminDefaultPassword;
-
-  if (!nextEmployeePassword || !nextHrPassword || !nextAdminPassword) {
-    return NextResponse.json(
-      { error: "Each role must have a default password." },
-      { status: 400 },
-    );
-  }
-
-  const invalidRole = ([
-    { role: "employee", password: nextEmployeePassword },
-    { role: "hr", password: nextHrPassword },
-    { role: "admin", password: nextAdminPassword },
-  ] as const).find((entry) => !validatePasswordRequirements(entry.password));
-
-  if (invalidRole) {
-    return NextResponse.json(
-      { error: `${invalidRole.role.toUpperCase()} default password is invalid. ${PASSWORD_REQUIREMENTS_MESSAGE}` },
-      { status: 400 },
-    );
-  }
-
-  const changedRoles = ([
-    { role: "employee", changed: nextEmployeePassword !== current.employeeDefaultPassword, nextPassword: nextEmployeePassword, previousVersion: current.employeePasswordVersion },
-    { role: "hr", changed: nextHrPassword !== current.hrDefaultPassword, nextPassword: nextHrPassword, previousVersion: current.hrPasswordVersion },
-    { role: "admin", changed: nextAdminPassword !== current.adminDefaultPassword, nextPassword: nextAdminPassword, previousVersion: current.adminPasswordVersion },
-  ] as const).filter((entry) => entry.changed);
 
   let updated: SystemSettingsRow;
 
@@ -235,12 +164,6 @@ export async function PUT(request: NextRequest) {
           "paternityLeaveDays" = ${toInt(body.paternityLeaveDays, 0)},
           "maternityLeaveDays" = ${toInt(body.maternityLeaveDays, 60)},
           "leaveWithoutPayDays" = ${toInt(body.leaveWithoutPayDays, 0)},
-          "employeeDefaultPassword" = ${nextEmployeePassword},
-          "hrDefaultPassword" = ${nextHrPassword},
-          "adminDefaultPassword" = ${nextAdminPassword},
-          "employeePasswordVersion" = ${getNextVersion(current.employeePasswordVersion, nextEmployeePassword !== current.employeeDefaultPassword)},
-          "hrPasswordVersion" = ${getNextVersion(current.hrPasswordVersion, nextHrPassword !== current.hrDefaultPassword)},
-          "adminPasswordVersion" = ${getNextVersion(current.adminPasswordVersion, nextAdminPassword !== current.adminDefaultPassword)},
           "updatedAt" = NOW()
         WHERE "id" = 'default'
         RETURNING
@@ -262,12 +185,6 @@ export async function PUT(request: NextRequest) {
           "paternityLeaveDays",
           "maternityLeaveDays",
           "leaveWithoutPayDays",
-          "employeeDefaultPassword",
-          "hrDefaultPassword",
-          "adminDefaultPassword",
-          "employeePasswordVersion",
-          "hrPasswordVersion",
-          "adminPasswordVersion",
           "updatedAt"
       `;
 
@@ -275,54 +192,9 @@ export async function PUT(request: NextRequest) {
         throw new Error("Unable to save settings.");
       }
 
-      for (const change of changedRoles) {
-        const nextVersion = rows[0][getPasswordVersionFieldForRole(change.role)] as number;
-        const managedUsers = await tx.user.findMany({
-          where: {
-            passwordSource: "role_default",
-            passwordRole: change.role,
-            passwordVersion: change.previousVersion,
-          },
-          select: {
-            id: true,
-            authUserId: true,
-            email: true,
-            name: true,
-            role: true,
-          },
-        });
-
-        for (const user of managedUsers) {
-          const authUser = await ensureAuthUserWithPassword(tx, {
-            authUserId: user.authUserId,
-            email: user.email,
-            password: change.nextPassword,
-            name: user.name ?? user.email,
-            role: user.role as Role,
-          });
-
-          await tx.user.update({
-            where: { id: user.id },
-            data: {
-              authUserId: authUser.id,
-              passwordSource: "role_default",
-              passwordRole: change.role,
-              passwordVersion: nextVersion,
-            },
-          });
-        }
-      }
-
       return rows[0];
     });
   } catch (error) {
-    if (isMissingColumnError(error, "employeeDefaultPassword")) {
-      return NextResponse.json(
-        { error: "Password defaults are not available yet. Run the Prisma migration first." },
-        { status: 503 },
-      );
-    }
-
     throw error;
   }
 
@@ -330,9 +202,7 @@ export async function PUT(request: NextRequest) {
     user: auth.user.name,
     action: "Update Settings",
     category: "System",
-    detail: changedRoles.length > 0
-      ? `System settings updated and rotated default passwords for ${changedRoles.map((entry) => entry.role).join(", ")}`
-      : "System settings were updated",
+    detail: "System settings were updated",
   });
 
   return NextResponse.json({

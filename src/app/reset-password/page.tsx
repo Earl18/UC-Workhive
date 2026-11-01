@@ -10,7 +10,7 @@ import { WorkHiveLogo } from "@/components/shared/workhive-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PASSWORD_REQUIREMENTS_MESSAGE, validatePasswordRequirements } from "@/lib/role-default-passwords";
+import { PASSWORD_REQUIREMENTS_MESSAGE, validatePasswordRequirements } from "@/lib/password-policy";
 import { PASSWORD_RESET_COMPLETED_CHANNEL, PASSWORD_RESET_REQUEST_ID_PATTERN, type PasswordResetCompleted } from "@/lib/password-reset-completion";
 
 type Verification = "checking" | "verified" | "invalid";

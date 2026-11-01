@@ -5,7 +5,7 @@ export const PLACEHOLDER_FIELDS = {
   leave: ["leaveType", "dateFrom", "dateTo", "days", "reason", "dateFiled", "overallStatus"],
   holiday: ["name", "date", "type"],
   settings: ["organizationName", "campusAddress", "contactNumber", "hrEmail", "academicYear", "currentSemester"],
-  event: ["date", "time", "hours", "reason", "platform", "locationLink", "resetLink", "newDate", "newTime"],
+  event: ["date", "time", "hours", "reason", "platform", "locationLink", "resetLink", "temporaryPassword", "newDate", "newTime"],
 } as const;
 
 export type PlaceholderSource = keyof typeof PLACEHOLDER_FIELDS;

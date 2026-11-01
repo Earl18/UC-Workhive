@@ -7,7 +7,7 @@ import {
   mustChangeRolePassword,
   verifySessionToken,
 } from "@/lib/auth";
-import { DEFAULT_ROLE_PASSWORDS, getDefaultPasswordForRole, PASSWORD_REQUIREMENTS_MESSAGE, validatePasswordRequirements } from "@/lib/role-default-passwords";
+import { PASSWORD_REQUIREMENTS_MESSAGE, validatePasswordRequirements } from "@/lib/password-policy";
 import { isAllowedRequestOrigin } from "@/lib/request-origin";
 
 export async function POST(request: NextRequest) {
@@ -39,12 +39,16 @@ export async function POST(request: NextRequest) {
       if (!user || !user.active || user.email.toLowerCase() !== session.email.toLowerCase()) return "unauthorized";
       if (!mustChangeRolePassword(user.email, user.passwordSource)) return "already_changed";
 
-      const settings = await tx.systemSettings.findUnique({
-        where: { id: "default" },
-        select: { employeeDefaultPassword: true, hrDefaultPassword: true, adminDefaultPassword: true },
-      });
-      const roleDefault = settings ? getDefaultPasswordForRole(settings, user.role) : DEFAULT_ROLE_PASSWORDS[user.role];
-      if (password === roleDefault) return "same_password";
+      const matches = user.authUserId
+        ? await tx.$queryRaw<Array<{ same: boolean }>>`
+            SELECT "encrypted_password" = crypt(${password}, "encrypted_password") AS "same"
+            FROM auth.users WHERE "id" = ${user.authUserId}::uuid AND "deleted_at" IS NULL
+          `
+        : await tx.$queryRaw<Array<{ same: boolean }>>`
+            SELECT "encrypted_password" = crypt(${password}, "encrypted_password") AS "same"
+            FROM auth.users WHERE lower("email") = lower(${user.email}) AND "deleted_at" IS NULL
+          `;
+      if (matches[0]?.same) return "same_password";
 
       const updated = user.authUserId
         ? await tx.$executeRaw`
@@ -66,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     if (result === "unauthorized") return NextResponse.json({ error: "Your account is unavailable." }, { status: 401 });
     if (result === "already_changed") return NextResponse.json({ error: "This account already has a custom password. Sign in again." }, { status: 409 });
-    if (result === "same_password") return NextResponse.json({ error: "Choose a password different from your role's default password." }, { status: 400 });
+    if (result === "same_password") return NextResponse.json({ error: "Choose a password different from your temporary password." }, { status: 400 });
 
     const user = { ...session, mustChangePassword: false };
     const response = NextResponse.json({ user }, { headers: { "Cache-Control": "no-store" } });

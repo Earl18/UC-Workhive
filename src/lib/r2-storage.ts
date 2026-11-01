@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 // Leave room below R2 Standard's 10 GB-month free storage allowance. This is an
 // application safeguard, not an account-level billing cap.
@@ -100,6 +100,17 @@ export async function downloadApplicantRequirementsArchiveFromR2(input: {
       throw new Error("R2 returned an empty applicant archive response.");
     }
     return Buffer.from(await result.Body.transformToByteArray());
+  } finally {
+    client.destroy();
+  }
+}
+
+export async function deleteApplicantRequirementsArchiveFromR2(input: { bucket: string; objectPath: string }) {
+  const config = getR2Config();
+  if (input.bucket !== config.bucket || !input.objectPath.startsWith("applications/")) return;
+  const client = createR2Client(config);
+  try {
+    await client.send(new DeleteObjectCommand({ Bucket: input.bucket, Key: input.objectPath }));
   } finally {
     client.destroy();
   }

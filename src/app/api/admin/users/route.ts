@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-auth";
-import { getAdminUsers, getSystemSettings, logAuditEvent, toSystemUser } from "@/lib/admin-data";
+import { getAdminUsers, logAuditEvent, toSystemUser } from "@/lib/admin-data";
 import { ensureAuthUserWithPassword, findAuthUserByEmail } from "@/lib/auth-admin";
 import { isAllowedEmail, normalizeEmail } from "@/lib/auth";
-import {
-  getDefaultPasswordForRole,
-  PASSWORD_REQUIREMENTS_MESSAGE,
-  validatePasswordRequirements,
-} from "@/lib/role-default-passwords";
 import type { Role } from "@/lib/types";
-import { sendTemplatedEmailSafely } from "@/lib/brevo-email";
+import { emailDeliveryErrorMessage, isEmailTransportConfigured, sendTemplatedEmail } from "@/lib/brevo-email";
+import { generateTemporaryPassword } from "@/lib/temporary-password";
 
 export async function GET(request: NextRequest) {
   const auth = requireAdmin(request);
@@ -54,15 +50,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "A user with that email already exists." }, { status: 409 });
   }
 
-  const settings = await getSystemSettings();
-  const defaultPassword = getDefaultPasswordForRole(settings, role);
-
-  if (!validatePasswordRequirements(defaultPassword)) {
-    return NextResponse.json(
-      { error: `${role.toUpperCase()} default password is invalid. ${PASSWORD_REQUIREMENTS_MESSAGE}` },
-      { status: 400 },
-    );
+  if (!isEmailTransportConfigured()) {
+    return NextResponse.json({ error: "Account email delivery is not configured." }, { status: 503 });
   }
+
+  const temporaryPassword = generateTemporaryPassword();
 
   const created = await db.$transaction(async (tx) => {
     const existingAuthUser = await findAuthUserByEmail(tx, email);
@@ -72,18 +64,9 @@ export async function POST(request: NextRequest) {
 
     const authUser = await ensureAuthUserWithPassword(tx, {
       email,
-      password: defaultPassword,
+      password: temporaryPassword,
       name,
       role,
-    });
-
-    const passwordVersionRow = await tx.systemSettings.findUnique({
-      where: { id: "default" },
-      select: {
-        employeePasswordVersion: true,
-        hrPasswordVersion: true,
-        adminPasswordVersion: true,
-      },
     });
 
     return tx.user.create({
@@ -96,13 +79,8 @@ export async function POST(request: NextRequest) {
         department,
         active: true,
         passwordSource: "role_default",
-        passwordRole: role,
-        passwordVersion:
-          role === "admin"
-            ? passwordVersionRow?.adminPasswordVersion ?? 1
-            : role === "hr"
-              ? passwordVersionRow?.hrPasswordVersion ?? 1
-              : passwordVersionRow?.employeePasswordVersion ?? 1,
+        passwordRole: null,
+        passwordVersion: null,
       },
       select: {
         id: true,
@@ -124,11 +102,15 @@ export async function POST(request: NextRequest) {
     detail: `Provisioned ${created.email} as ${created.role}`,
   });
 
-  await sendTemplatedEmailSafely({
-    type: "Welcome Email", to: created.email, recipientName: created.name ?? undefined,
-    context: { userId: created.id, employeeId: created.employeeId ?? undefined },
-    eventKey: `user:${created.id}:welcome`,
-  });
-
-  return NextResponse.json({ user: toSystemUser(created) });
+  try {
+    await sendTemplatedEmail({
+      type: "Welcome Email", to: created.email, recipientName: created.name ?? undefined,
+      context: { userId: created.id, employeeId: created.employeeId ?? undefined, event: { temporaryPassword } },
+      eventKey: `user:${created.id}:credentials`,
+    });
+    return NextResponse.json({ user: toSystemUser(created), emailSent: true });
+  } catch (error) {
+    console.error("Account credentials email failed", error);
+    return NextResponse.json({ user: toSystemUser(created), emailSent: false, emailError: emailDeliveryErrorMessage(error) });
+  }
 }

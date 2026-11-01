@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { PASSWORD_REQUIREMENTS_MESSAGE, validatePasswordRequirements } from "@/lib/role-default-passwords";
+import { PASSWORD_REQUIREMENTS_MESSAGE, validatePasswordRequirements } from "@/lib/password-policy";
 import { getResetUser, getSupabaseResetConfig } from "@/lib/password-reset";
 import { PASSWORD_RESET_REQUEST_ID_PATTERN } from "@/lib/password-reset-completion";
 

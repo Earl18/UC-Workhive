@@ -5,7 +5,8 @@ import { invalidateAttendanceMetadataCache } from "@/lib/attendance-data";
 import type { AuthenticatedPortalUser } from "@/lib/auth";
 import { normalizeEmail, isAllowedEmail } from "@/lib/auth";
 import { createAuthUsersWithPassword, ensureAuthUserWithPassword, findAuthUsersByEmails, syncAuthUserProfile } from "@/lib/auth-admin";
-import { getDefaultPasswordForRole, validatePasswordRequirements } from "@/lib/role-default-passwords";
+import { generateTemporaryPassword } from "@/lib/temporary-password";
+import { sendTemplatedEmail } from "@/lib/brevo-email";
 import type { DocumentRecord, EducationTier, Employee, EmploymentStatus, Gender, Role, StaffCategory } from "@/lib/types";
 import type { ImportedEmployeeDraft } from "@/lib/hr-import";
 
@@ -646,6 +647,8 @@ export async function createEmployeeMasterRecord(input: CreateEmployeeMasterReco
     }
   }
 
+  const temporaryPassword = createAccount ? generateTemporaryPassword() : null;
+
   await db.$transaction(async (tx) => {
     await tx.employeeRecord.create({
       data: {
@@ -675,30 +678,6 @@ export async function createEmployeeMasterRecord(input: CreateEmployeeMasterReco
       return;
     }
 
-    const settings = await tx.systemSettings.findUnique({
-      where: { id: "default" },
-      select: {
-        employeeDefaultPassword: true,
-        hrDefaultPassword: true,
-        adminDefaultPassword: true,
-        employeePasswordVersion: true,
-        hrPasswordVersion: true,
-      },
-    });
-
-    const defaultPassword = getDefaultPasswordForRole(
-      {
-        employeeDefaultPassword: settings?.employeeDefaultPassword ?? "Employee@123",
-        hrDefaultPassword: settings?.hrDefaultPassword ?? "HR@123",
-        adminDefaultPassword: settings?.adminDefaultPassword ?? "Admin@123",
-      },
-      accountRole,
-    );
-
-    if (!validatePasswordRequirements(defaultPassword)) {
-      throw new Error("The default password for this account role is invalid in System Settings.");
-    }
-
     const existingUser = await tx.user.findUnique({
       where: { email },
       select: { id: true },
@@ -709,7 +688,7 @@ export async function createEmployeeMasterRecord(input: CreateEmployeeMasterReco
 
     const authUser = await ensureAuthUserWithPassword(tx, {
       email,
-      password: defaultPassword,
+      password: temporaryPassword!,
       name: fullName,
       role: accountRole,
     });
@@ -724,8 +703,8 @@ export async function createEmployeeMasterRecord(input: CreateEmployeeMasterReco
         department,
         active: true,
         passwordSource: "role_default",
-        passwordRole: accountRole,
-        passwordVersion: accountRole === "hr" ? settings?.hrPasswordVersion ?? 1 : settings?.employeePasswordVersion ?? 1,
+        passwordRole: null,
+        passwordVersion: null,
       },
     });
   });
@@ -735,7 +714,7 @@ export async function createEmployeeMasterRecord(input: CreateEmployeeMasterReco
   if (!createdEmployee) {
     throw new Error("Employee record was created, but it could not be loaded afterward.");
   }
-  return createdEmployee;
+  return { employee: createdEmployee, temporaryPassword };
 }
 
 export async function updateEmployeeMasterRecord(
@@ -1552,6 +1531,8 @@ export async function importEmployeeMasterRecords(records: ImportedEmployeeDraft
       total: normalizedRecords.length,
       accountsCreated: 0,
       accountsSkipped: 0,
+      accountEmailsSent: 0,
+      accountEmailsFailed: 0,
     };
   }
 
@@ -1604,43 +1585,8 @@ export async function importEmployeeMasterRecords(records: ImportedEmployeeDraft
   const updates = Array.from(updatesByTargetId.values());
   let accountsCreated = 0;
   let accountsSkipped = 0;
-
-  const passwordSettings = inserts.length > 0
-    ? await db.systemSettings.findUnique({
-        where: { id: "default" },
-        select: {
-          employeeDefaultPassword: true,
-          hrDefaultPassword: true,
-          adminDefaultPassword: true,
-          employeePasswordVersion: true,
-          hrPasswordVersion: true,
-        },
-      })
-    : null;
-
-  const rolePasswordSettings = {
-    employeeDefaultPassword: passwordSettings?.employeeDefaultPassword ?? "Employee@123",
-    hrDefaultPassword: passwordSettings?.hrDefaultPassword ?? "HR@123",
-    adminDefaultPassword: passwordSettings?.adminDefaultPassword ?? "Admin@123",
-  };
-
-  const employeeDefaultPassword = inserts.length > 0
-    ? getDefaultPasswordForRole(rolePasswordSettings, "employee")
-    : null;
-  const hrDefaultPassword = inserts.length > 0
-    ? getDefaultPasswordForRole(rolePasswordSettings, "hr")
-    : null;
-
-  if (employeeDefaultPassword && !validatePasswordRequirements(employeeDefaultPassword)) {
-    throw new Error("Employee default password is invalid. Update System Settings before importing accounts.");
-  }
-
-  if (hrDefaultPassword && !validatePasswordRequirements(hrDefaultPassword)) {
-    throw new Error("HR default password is invalid. Update System Settings before importing accounts.");
-  }
-
-  const employeePasswordVersion = passwordSettings?.employeePasswordVersion ?? 1;
-  const hrPasswordVersion = passwordSettings?.hrPasswordVersion ?? 1;
+  let accountEmailsSent = 0;
+  let accountEmailsFailed = 0;
 
   await db.$transaction(async (tx) => {
     for (const chunk of chunkRecords(inserts, EMPLOYEE_IMPORT_CHUNK_SIZE)) {
@@ -1682,7 +1628,7 @@ export async function importEmployeeMasterRecords(records: ImportedEmployeeDraft
     }
   });
 
-  if (inserts.length > 0 && employeeDefaultPassword && hrDefaultPassword) {
+  if (inserts.length > 0) {
     const eligibleRecords = inserts
       .map((record) => ({ record, email: normalizeEmail(record.email) }))
       .filter(({ email }) => {
@@ -1713,13 +1659,12 @@ export async function importEmployeeMasterRecords(records: ImportedEmployeeDraft
       employeeId: string;
       department: string;
       role: "employee" | "hr";
-      passwordVersion: number;
+      temporaryPassword: string;
     }> = [];
 
     for (const { record, email } of eligibleRecords) {
       const role = record.accountRole === "hr" ? "hr" : "employee";
-      const password = role === "hr" ? hrDefaultPassword : employeeDefaultPassword;
-      const passwordVersion = role === "hr" ? hrPasswordVersion : employeePasswordVersion;
+      const password = generateTemporaryPassword();
 
       if (existingUserEmails.has(email)) {
         accountsSkipped += 1;
@@ -1742,7 +1687,7 @@ export async function importEmployeeMasterRecords(records: ImportedEmployeeDraft
           employeeId: record.targetId,
           department: record.department,
           role,
-          passwordVersion,
+          temporaryPassword: password,
         });
         continue;
       }
@@ -1762,7 +1707,7 @@ export async function importEmployeeMasterRecords(records: ImportedEmployeeDraft
         employeeId: record.targetId,
         department: record.department,
         role,
-        passwordVersion,
+        temporaryPassword: password,
       });
       authUserByEmail.set(email, { id: authUserId, email });
     }
@@ -1786,14 +1731,35 @@ export async function importEmployeeMasterRecords(records: ImportedEmployeeDraft
           department: user.department,
           active: true,
           passwordSource: "role_default",
-          passwordRole: user.role,
-          passwordVersion: user.passwordVersion,
+          passwordRole: null,
+          passwordVersion: null,
         })),
         skipDuplicates: true,
       });
 
       accountsCreated += result.count;
       accountsSkipped += chunk.length - result.count;
+    }
+
+    const createdRows = await db.user.findMany({
+      where: { email: { in: appUsersToCreate.map((user) => user.email) } },
+      select: { email: true, employeeId: true, id: true },
+    });
+    const createdByEmail = new Map(createdRows.map((user) => [user.email.toLowerCase(), user]));
+    const credentialsToEmail = appUsersToCreate.filter((user) => createdByEmail.get(user.email)?.employeeId === user.employeeId);
+    for (const chunk of chunkRecords(credentialsToEmail, 10)) {
+      const deliveries = await Promise.allSettled(chunk.map((user) => sendTemplatedEmail({
+        type: "Welcome Email", to: user.email, recipientName: user.name,
+        context: { userId: createdByEmail.get(user.email)?.id, employeeId: user.employeeId, event: { temporaryPassword: user.temporaryPassword } },
+        eventKey: `employee:${user.employeeId}:credentials`,
+      })));
+      for (const delivery of deliveries) {
+        if (delivery.status === "fulfilled") accountEmailsSent += 1;
+        else {
+          accountEmailsFailed += 1;
+          console.error("Imported account credentials email failed", delivery.reason);
+        }
+      }
     }
   }
 
@@ -1805,6 +1771,8 @@ export async function importEmployeeMasterRecords(records: ImportedEmployeeDraft
     total: normalizedRecords.length,
     accountsCreated,
     accountsSkipped,
+    accountEmailsSent,
+    accountEmailsFailed,
   };
 }
 

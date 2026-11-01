@@ -37,9 +37,6 @@ const DEFAULT_SETTINGS: SystemSettingsRecord = {
   paternityLeaveDays: 0,
   maternityLeaveDays: 60,
   leaveWithoutPayDays: 0,
-  employeeDefaultPassword: "Employee@123",
-  hrDefaultPassword: "HR@123",
-  adminDefaultPassword: "Admin@123",
 };
 
 const DEFAULT_TOGGLES: FeatureToggles = {
@@ -111,8 +108,13 @@ const DEFAULT_EMAIL_TEMPLATES: EmailTemplate[] = [
   },
   {
     type: "Welcome Email",
-    subject: "Welcome to UC South Campus!",
-    body: "Dear [Employee Name],\n\nWelcome to the WorkHive family at University of Cebu - South Campus. Your account has been created.\n\nLogin at workhive.uc.edu.ph using your registered email address.\n\nUC South Campus - HR Department",
+    subject: "Your WorkHive account is ready",
+    body: "Dear [User],\n\nYour WorkHive account at University of Cebu - South Campus is ready.\n\nSign in at workhive.uc.edu.ph using your registered email address and this temporary password:\n\n[Temporary Password]\n\nYou will be asked to choose a new password at your first sign in.\n\nUC South Campus - HR Department",
+  },
+  {
+    type: "Temporary Password",
+    subject: "Your new WorkHive temporary password",
+    body: "Dear [User],\n\nAn administrator issued a new temporary password for your WorkHive account.\n\nYour temporary password: [Temporary Password]\n\nSign in using your registered email address. You will be asked to choose a new password immediately. If you did not expect this change, please contact the HR Department.\n\nUC South Campus - HR Department",
   },
   {
     type: "Password Reset",
@@ -265,14 +267,19 @@ async function ensureEmailTemplateSeed() {
   }
 
   try {
-    const existingCount = await db.emailTemplateRecord.count();
-    if (existingCount === 0) {
+    const existing = await db.emailTemplateRecord.findMany({ select: { type: true } });
+    const existingTypes = new Set(existing.map((template) => template.type));
+    const missing = existing.length === 0
+      ? DEFAULT_EMAIL_TEMPLATES
+      : DEFAULT_EMAIL_TEMPLATES.filter((template) => template.type === "Temporary Password" && !existingTypes.has(template.type));
+    if (missing.length > 0) {
       await db.emailTemplateRecord.createMany({
-        data: DEFAULT_EMAIL_TEMPLATES.map((template) => ({
+        data: missing.map((template) => ({
           type: template.type,
           subject: template.subject,
           body: template.body,
         })),
+        skipDuplicates: true,
       });
     }
     return true;
@@ -439,12 +446,6 @@ type SystemSettingsRow = {
   paternityLeaveDays: number;
   maternityLeaveDays: number;
   leaveWithoutPayDays: number;
-  employeeDefaultPassword: string;
-  hrDefaultPassword: string;
-  adminDefaultPassword: string;
-  employeePasswordVersion: number;
-  hrPasswordVersion: number;
-  adminPasswordVersion: number;
   updatedAt: Date;
 };
 
@@ -475,9 +476,6 @@ export async function getSystemSettings(): Promise<SystemSettingsRecord> {
           paternityLeaveDays: settings.paternityLeaveDays,
           maternityLeaveDays: settings.maternityLeaveDays,
           leaveWithoutPayDays: settings.leaveWithoutPayDays,
-          employeeDefaultPassword: settings.employeeDefaultPassword,
-          hrDefaultPassword: settings.hrDefaultPassword,
-          adminDefaultPassword: settings.adminDefaultPassword,
           updatedAt: formatTimestamp(settings.updatedAt),
         }
       : (() => {
@@ -515,9 +513,6 @@ export async function getSystemSettings(): Promise<SystemSettingsRecord> {
       paternityLeaveDays: created.paternityLeaveDays,
       maternityLeaveDays: created.maternityLeaveDays,
       leaveWithoutPayDays: created.leaveWithoutPayDays,
-      employeeDefaultPassword: created.employeeDefaultPassword,
-      hrDefaultPassword: created.hrDefaultPassword,
-      adminDefaultPassword: created.adminDefaultPassword,
       updatedAt: formatTimestamp(created.updatedAt),
     };
 
@@ -554,9 +549,6 @@ export async function getSystemSettings(): Promise<SystemSettingsRecord> {
         paternityLeaveDays: DEFAULT_SETTINGS.paternityLeaveDays,
         maternityLeaveDays: DEFAULT_SETTINGS.maternityLeaveDays,
         leaveWithoutPayDays: DEFAULT_SETTINGS.leaveWithoutPayDays,
-        employeeDefaultPassword: DEFAULT_SETTINGS.employeeDefaultPassword,
-        hrDefaultPassword: DEFAULT_SETTINGS.hrDefaultPassword,
-        adminDefaultPassword: DEFAULT_SETTINGS.adminDefaultPassword,
         updatedAt: formatTimestamp(settings.updatedAt),
       };
 

@@ -60,12 +60,6 @@ model SystemSettings {
   paternityLeaveDays      Int      @default(0)
   maternityLeaveDays      Int      @default(60)
   leaveWithoutPayDays     Int      @default(0)
-  employeeDefaultPassword String   @default("Employee@123")
-  hrDefaultPassword       String   @default("HR@123")
-  adminDefaultPassword    String   @default("Admin@123")
-  employeePasswordVersion Int      @default(1)
-  hrPasswordVersion       Int      @default(1)
-  adminPasswordVersion    Int      @default(1)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
 }
@@ -316,6 +310,7 @@ enum Role {
 }
 
 enum PasswordSource {
+  /// Legacy name: also marks unique temporary passwords that require a first sign-in change.
   role_default
   custom
 }

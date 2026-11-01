@@ -3,6 +3,7 @@ import { requireStaff } from "@/lib/admin-auth";
 import { logAuditEvent } from "@/lib/admin-data";
 import { importEmployeeMasterRecords } from "@/lib/hr-data";
 import type { ImportedEmployeeDraft } from "@/lib/hr-import";
+import { isEmailTransportConfigured } from "@/lib/brevo-email";
 
 export async function POST(request: NextRequest) {
   const auth = requireStaff(request);
@@ -21,6 +22,10 @@ export async function POST(request: NextRequest) {
     const records = Array.isArray(body.records) ? body.records : [];
     if (records.length === 0) {
       return NextResponse.json({ error: "No extracted employee records were provided." }, { status: 400 });
+    }
+
+    if (body.workbookType !== "id-number" && !isEmailTransportConfigured()) {
+      return NextResponse.json({ error: "Account email delivery is not configured. Configure it before importing employees with website accounts." }, { status: 503 });
     }
 
     const overwriteExisting = body.overwriteExisting === true;

@@ -1,14 +1,16 @@
 import JSZip from "jszip";
 import { NextRequest, NextResponse } from "next/server";
 import { APPLICANT_UPLOAD_REQUIREMENTS } from "@/lib/application-requirements";
-import { submitApplicantApplication } from "@/lib/application-data";
+import { DuplicateJobApplicationError, hasSubmittedJobApplication, submitApplicantApplication } from "@/lib/application-data";
+import { ApplicationChallengeError, verifyJobApplicationChallenge } from "@/lib/application-abuse";
 import { sendTemplatedEmailSafely } from "@/lib/brevo-email";
+import { isAllowedRequestOrigin } from "@/lib/request-origin";
 import {
   APPLICATION_REQUIREMENT_ALLOWED_MIME_TYPES,
   APPLICATION_REQUIREMENT_MAX_BYTES,
   APPLICATION_REQUIREMENT_MAX_MB,
 } from "@/lib/employee-document-config";
-import { R2StorageLimitError, uploadApplicantRequirementsArchiveToR2 } from "@/lib/r2-storage";
+import { deleteApplicantRequirementsArchiveFromR2, R2StorageLimitError, uploadApplicantRequirementsArchiveToR2 } from "@/lib/r2-storage";
 
 function sanitizeArchiveName(value: string) {
   return value
@@ -33,20 +35,31 @@ function getFileExtension(fileName: string) {
 }
 
 export async function POST(request: NextRequest) {
+  if (!isAllowedRequestOrigin(request)) {
+    return NextResponse.json({ error: "Invalid request origin." }, { status: 403 });
+  }
+  const contentLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > 22 * 1024 * 1024) {
+    return NextResponse.json({ error: "The application upload is too large." }, { status: 413 });
+  }
   try {
     const formData = await request.formData();
     const fullName = String(formData.get("fullName") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim();
     const contact = String(formData.get("contact") ?? "").trim();
     const message = String(formData.get("message") ?? "").trim();
-    const sssNumber = String(formData.get("sssNumber") ?? "").trim();
-    const tinNumber = String(formData.get("tinNumber") ?? "").trim();
-    const pagIbigNumber = String(formData.get("pagIbigNumber") ?? "").trim();
-    const philHealthNumber = String(formData.get("philHealthNumber") ?? "").trim();
     const jobId = String(formData.get("jobId") ?? "").trim();
+    const challengeToken = String(formData.get("turnstileToken") ?? "").trim();
 
-    if (!fullName || !email || !contact || !sssNumber || !tinNumber || !pagIbigNumber || !philHealthNumber || !jobId) {
+    if (!fullName || !email || !contact || !jobId) {
       return NextResponse.json({ error: "Please complete all required applicant details." }, { status: 400 });
+    }
+    if (fullName.length > 160 || email.length > 254 || contact.length > 40 || message.length > 2_000 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: "Please check the applicant details and email address." }, { status: 400 });
+    }
+    await verifyJobApplicationChallenge(challengeToken, request.nextUrl.hostname);
+    if (await hasSubmittedJobApplication(jobId, email)) {
+      return NextResponse.json({ error: "An application from this email has already been submitted for this job." }, { status: 409 });
     }
 
     const zip = new JSZip();
@@ -61,7 +74,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: `Missing required file: ${requirement.label}` }, { status: 400 });
       }
 
-      if (!("allowMultiple" in requirement && requirement.allowMultiple) && files.length > 1) {
+      if (files.length > 1) {
         return NextResponse.json({ error: `${requirement.label} accepts only one file.` }, { status: 400 });
       }
 
@@ -110,15 +123,14 @@ export async function POST(request: NextRequest) {
       email,
       contact,
       message,
-      sssNumber,
-      tinNumber,
-      pagIbigNumber,
-      philHealthNumber,
       jobId,
       requirements,
       requirementsArchiveName: storage.fileName,
       requirementsArchiveBucket: storage.bucket,
       requirementsArchivePath: storage.objectPath,
+    }).catch(async (error) => {
+      await deleteApplicantRequirementsArchiveFromR2(storage).catch((cleanupError) => console.error("Applicant archive cleanup failed", cleanupError));
+      throw error;
     });
 
     await sendTemplatedEmailSafely({
@@ -131,6 +143,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ applicant });
   } catch (error) {
+    if (error instanceof ApplicationChallengeError || error instanceof DuplicateJobApplicationError) {
+      return NextResponse.json({ error: error.message }, { status: error instanceof ApplicationChallengeError ? error.status : 409 });
+    }
     if (error instanceof R2StorageLimitError) {
       return NextResponse.json({ error: error.message }, { status: 507 });
     }

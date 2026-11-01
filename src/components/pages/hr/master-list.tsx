@@ -228,7 +228,7 @@ async function commitImport({ payload, overwriteExisting, signal }: { payload: I
     }),
     signal,
   });
-  return readCommitJson<{ result: { created: number; updated: number; skipped: number; total: number; accountsCreated: number; accountsSkipped: number } }>(response);
+  return readCommitJson<{ result: { created: number; updated: number; skipped: number; total: number; accountsCreated: number; accountsSkipped: number; accountEmailsSent: number; accountEmailsFailed: number } }>(response);
 }
 
 function educationValueFor(record: ImportedEmployeeDraft, level: "Bachelor" | "Master" | "Doctoral") {
@@ -388,7 +388,8 @@ export function MasterListPage() {
       await queryClient.refetchQueries({ queryKey: ["hr-master-list"], type: "active" });
       toast({
         title: "Employee masterlist updated",
-        description: `${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.accountsCreated} website accounts created, ${result.accountsSkipped} account creations skipped, ${result.total} total reviewed.`,
+        description: `${result.created} created, ${result.updated} updated, ${result.skipped} skipped, ${result.accountsCreated} website accounts created, ${result.accountEmailsSent} password emails sent, ${result.accountEmailsFailed} email failures, ${result.accountsSkipped} account creations skipped, ${result.total} total reviewed.`,
+        variant: result.accountEmailsFailed > 0 ? "destructive" : "default",
       });
       setImportOpen(false);
       setSelectedFile(null);

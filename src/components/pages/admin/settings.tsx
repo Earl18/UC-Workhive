@@ -21,10 +21,6 @@ import {
   Loader2,
   Plane,
   CircleAlert,
-  KeyRound,
-  Upload,
-  Download,
-  FileText,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -36,11 +32,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useWorkHive } from "@/lib/store";
 import { HexagonBadge } from "@/components/shared/hexagon";
 import { useAdminSystemSettings } from "@/hooks/use-system-settings";
-import { useAdminApplicantTemplate } from "@/hooks/use-applicant-template";
 import type { SystemSettingsApiResponse, SystemSettingsHealth, SystemSettingsRecord } from "@/lib/admin-types";
 import { buildAcademicYearOptions, DEFAULT_SYSTEM_SETTINGS, normalizeAcademicYear } from "@/lib/system-settings";
-import { PASSWORD_REQUIREMENTS_MESSAGE } from "@/lib/role-default-passwords";
-import { APPLICANT_TEMPLATE_ACCEPT } from "@/lib/employee-document-config";
 
 const SEMESTER_OPTIONS = ["1st Semester", "2nd Semester", "Summer"] as const;
 const DEFAULT_HEALTH: SystemSettingsHealth = {
@@ -86,9 +79,6 @@ function normalizeSettings(settings: SystemSettingsRecord): SystemSettingsRecord
     paternityLeaveDays: clampNumber(numberOrFallback(settings.paternityLeaveDays, DEFAULT_SYSTEM_SETTINGS.paternityLeaveDays), 0, 365),
     maternityLeaveDays: clampNumber(numberOrFallback(settings.maternityLeaveDays, DEFAULT_SYSTEM_SETTINGS.maternityLeaveDays), 0, 365),
     leaveWithoutPayDays: clampNumber(numberOrFallback(settings.leaveWithoutPayDays, DEFAULT_SYSTEM_SETTINGS.leaveWithoutPayDays), 0, 365),
-    employeeDefaultPassword: safeTrim(settings.employeeDefaultPassword, DEFAULT_SYSTEM_SETTINGS.employeeDefaultPassword),
-    hrDefaultPassword: safeTrim(settings.hrDefaultPassword, DEFAULT_SYSTEM_SETTINGS.hrDefaultPassword),
-    adminDefaultPassword: safeTrim(settings.adminDefaultPassword, DEFAULT_SYSTEM_SETTINGS.adminDefaultPassword),
     updatedAt: settings.updatedAt,
   };
 }
@@ -115,10 +105,7 @@ function settingsEqual(left: SystemSettingsRecord, right: SystemSettingsRecord) 
     normalizedLeft.soloParentLeaveDays === normalizedRight.soloParentLeaveDays &&
     normalizedLeft.paternityLeaveDays === normalizedRight.paternityLeaveDays &&
     normalizedLeft.maternityLeaveDays === normalizedRight.maternityLeaveDays &&
-    normalizedLeft.leaveWithoutPayDays === normalizedRight.leaveWithoutPayDays &&
-    normalizedLeft.employeeDefaultPassword === normalizedRight.employeeDefaultPassword &&
-    normalizedLeft.hrDefaultPassword === normalizedRight.hrDefaultPassword &&
-    normalizedLeft.adminDefaultPassword === normalizedRight.adminDefaultPassword
+    normalizedLeft.leaveWithoutPayDays === normalizedRight.leaveWithoutPayDays
   );
 }
 
@@ -132,11 +119,9 @@ export function SettingsPage() {
   const queryClient = useQueryClient();
   const { setView } = useWorkHive();
   const { data, isLoading, error } = useAdminSystemSettings();
-  const applicantTemplateQuery = useAdminApplicantTemplate();
 
   const [savedSettings, setSavedSettings] = useState<SystemSettingsRecord>(DEFAULT_SYSTEM_SETTINGS);
   const [form, setForm] = useState<SystemSettingsRecord>(DEFAULT_SYSTEM_SETTINGS);
-  const [applicantTemplateFile, setApplicantTemplateFile] = useState<File | null>(null);
   const [addressResults, setAddressResults] = useState<AddressSearchResult[]>([]);
   const [addressSearchLoading, setAddressSearchLoading] = useState(false);
   const [addressSearchError, setAddressSearchError] = useState<string | null>(null);
@@ -272,40 +257,6 @@ export function SettingsPage() {
   });
 
 
-  const applicantTemplateUploadMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const payload = new FormData();
-      payload.set("templateFile", file);
-
-      const response = await fetch("/api/admin/settings/applicant-template", {
-        method: "POST",
-        body: payload,
-      });
-
-      const rawBody = await response.text();
-      const body = rawBody ? JSON.parse(rawBody) as { error?: string } : {};
-      if (!response.ok) {
-        throw new Error(body.error ?? "Unable to upload the applicant template.");
-      }
-    },
-    onSuccess: () => {
-      setApplicantTemplateFile(null);
-      void queryClient.invalidateQueries({ queryKey: ["admin-applicant-template"] });
-      void queryClient.invalidateQueries({ queryKey: ["public-applicant-template"] });
-      toast({
-        title: "Template uploaded",
-        description: "Applicants can now download the latest UC Application Form from the public application page.",
-      });
-    },
-    onError: (mutationError) => {
-      toast({
-        title: "Unable to upload template",
-        description: mutationError instanceof Error ? mutationError.message : "Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
   const updateField = <K extends keyof SystemSettingsRecord>(key: K, value: SystemSettingsRecord[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
@@ -383,14 +334,13 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {[
           { icon: Building2, label: "Organization", desc: "Campus identity", target: "org" },
           { icon: GraduationCap, label: "Academic Calendar", desc: "Year & semester", target: "calendar" },
           { icon: Clock, label: "Attendance Policies", desc: "Grace & tardiness", target: "attendance" },
           { icon: Plane, label: "Leave Limits", desc: "Max leave days", target: "leave-limits" },
           { icon: CalendarClock, label: "Reminders & GPS", desc: "Lead time & zones", target: "reminders" },
-          { icon: KeyRound, label: "Default Passwords", desc: "Role-based access", target: "passwords" },
         ].map((section) => (
           <a
             key={section.target}
@@ -504,50 +454,6 @@ export function SettingsPage() {
               <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
               Single-campus deployment - updates here immediately feed the shared website branding and contact details after save.
             </div>
-            <Separator />
-            <div className="space-y-3">
-              <div>
-                <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
-                  <FileText className="h-4 w-4 text-primary" /> UC Application Form Template
-                </p>
-                <p className="mt-1 text-[11px] text-muted-foreground">Upload the official UC Application Form here so applicants can download the latest template before submitting their files.</p>
-              </div>
-              <div className="rounded-xl border border-border bg-muted/20 p-3">
-                <div className="flex flex-col gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-foreground">UC Application Form</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {applicantTemplateFile
-                        ? `Selected: ${applicantTemplateFile.name}`
-                        : applicantTemplateQuery.data?.template.fileName?.trim()
-                          ? `Current file: ${applicantTemplateQuery.data.template.fileName}`
-                          : "No template uploaded yet."}
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <Input type="file" accept={APPLICANT_TEMPLATE_ACCEPT} className="max-w-xs" onChange={(event) => setApplicantTemplateFile(event.target.files?.[0] ?? null)} />
-                    <div className="flex gap-2">
-                      {applicantTemplateQuery.data?.template.storagePath ? (
-                        <Button type="button" variant="outline" size="sm" asChild>
-                          <a href="/api/public/applicant-template/download" target="_blank" rel="noreferrer">
-                            <Download className="mr-1 h-3.5 w-3.5" /> Download
-                          </a>
-                        </Button>
-                      ) : (
-                        <Button type="button" variant="outline" size="sm" disabled>
-                          <Download className="mr-1 h-3.5 w-3.5" /> Download
-                        </Button>
-                      )}
-                      <Button type="button" size="sm" disabled={!applicantTemplateFile || applicantTemplateUploadMutation.isPending} onClick={() => { if (applicantTemplateFile) { applicantTemplateUploadMutation.mutate(applicantTemplateFile); } }}>
-                        {applicantTemplateUploadMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                        {applicantTemplateUploadMutation.isPending ? "Uploading..." : "Upload"}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
           </CardContent>
         </Card>
 
@@ -740,50 +646,6 @@ export function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card id="passwords" className="scroll-mt-20">
-          <CardHeader>
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <KeyRound className="h-4 w-4" />
-              </div>
-              <div>
-                <CardTitle>Role Default Passwords</CardTitle>
-                <CardDescription>Control the default login password used when accounts are created per role.</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">Employee Default Password</Label>
-                <Input
-                  value={form.employeeDefaultPassword}
-                  onChange={(event) => updateField("employeeDefaultPassword", event.target.value)}
-                  placeholder="UCSemployee@123"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">HR Default Password</Label>
-                <Input
-                  value={form.hrDefaultPassword}
-                  onChange={(event) => updateField("hrDefaultPassword", event.target.value)}
-                  placeholder="UCShr@123"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">Admin Default Password</Label>
-                <Input
-                  value={form.adminDefaultPassword}
-                  onChange={(event) => updateField("adminDefaultPassword", event.target.value)}
-                  placeholder="UCSadmin@123"
-                />
-              </div>
-            </div>
-            <div className="rounded-xl border border-primary/15 bg-primary/5 p-3 text-xs text-muted-foreground">
-              Changing a role default password affects newly created accounts immediately. Existing users only rotate to the new password while they are still marked as using the system default for that role. Once a user requests their own password reset, that account is treated as custom and is skipped from future auto-updates. {PASSWORD_REQUIREMENTS_MESSAGE}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       <Card>

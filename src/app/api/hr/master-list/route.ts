@@ -3,7 +3,7 @@ import { requireStaff } from "@/lib/admin-auth";
 import { createEmployeeMasterRecord, getEmployeeMasterListPage } from "@/lib/hr-data";
 import { logAuditEvent } from "@/lib/admin-data";
 import type { Employee } from "@/lib/types";
-import { sendTemplatedEmailSafely } from "@/lib/brevo-email";
+import { emailDeliveryErrorMessage, isEmailTransportConfigured, sendTemplatedEmail } from "@/lib/brevo-email";
 
 export async function GET(request: NextRequest) {
   const auth = requireStaff(request);
@@ -37,7 +37,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = (await request.json()) as Omit<Employee, "id"> & { birthDate?: string; accountRole?: "employee" | "hr"; createAccount?: boolean };
-    const employee = await createEmployeeMasterRecord(body);
+    if (body.createAccount !== false && !isEmailTransportConfigured()) {
+      return NextResponse.json({ error: "Account email delivery is not configured." }, { status: 503 });
+    }
+    const { employee, temporaryPassword } = await createEmployeeMasterRecord(body);
 
     await logAuditEvent({
       user: auth.user.name,
@@ -46,15 +49,20 @@ export async function POST(request: NextRequest) {
       detail: `${employee?.lastName}, ${employee?.firstName} was added to the employee master list`,
     });
 
-    if (employee && body.createAccount !== false) {
-      await sendTemplatedEmailSafely({
-        type: "Welcome Email", to: employee.email,
-        recipientName: `${employee.firstName} ${employee.lastName}`,
-        context: { employeeId: employee.id }, eventKey: `employee:${employee.id}:welcome`,
-      });
+    if (temporaryPassword) {
+      try {
+        await sendTemplatedEmail({
+          type: "Welcome Email", to: employee.email,
+          recipientName: `${employee.firstName} ${employee.lastName}`,
+          context: { employeeId: employee.id, event: { temporaryPassword } }, eventKey: `employee:${employee.id}:credentials`,
+        });
+      } catch (emailError) {
+        console.error("Employee credentials email failed", emailError);
+        return NextResponse.json({ employee, emailSent: false, emailError: emailDeliveryErrorMessage(emailError) }, { status: 201 });
+      }
     }
 
-    return NextResponse.json({ employee }, { status: 201 });
+    return NextResponse.json({ employee, emailSent: Boolean(temporaryPassword) }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to create employee record.";
     return NextResponse.json({ error: message }, { status: 400 });

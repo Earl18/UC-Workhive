@@ -49,6 +49,7 @@ const CORE_TEMPLATE_ORDER: CoreEmailTemplateType[] = [
   "Overtime Rejected",
   "Upcoming Holiday Reminder",
   "Welcome Email",
+  "Temporary Password",
   "Password Reset",
 ];
 
@@ -62,6 +63,7 @@ const CORE_ICON_MAP: Record<CoreEmailTemplateType, LucideIcon> = {
   "Overtime Rejected": XCircle,
   "Upcoming Holiday Reminder": BellRing,
   "Welcome Email": Sparkles,
+  "Temporary Password": KeyRound,
   "Password Reset": KeyRound,
 };
 
@@ -87,6 +89,7 @@ function TemplateIcon({ type, className }: { type: string; className?: string })
       return <BellRing className={className} />;
     case "Welcome Email":
       return <Sparkles className={className} />;
+    case "Temporary Password":
     case "Password Reset":
       return <KeyRound className={className} />;
     default:

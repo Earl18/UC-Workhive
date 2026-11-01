@@ -19,9 +19,6 @@ export const DEFAULT_SYSTEM_SETTINGS: SystemSettingsRecord = {
   paternityLeaveDays: 0,
   maternityLeaveDays: 60,
   leaveWithoutPayDays: 0,
-  employeeDefaultPassword: "Employee@123",
-  hrDefaultPassword: "HR@123",
-  adminDefaultPassword: "Admin@123",
 };
 
 export function normalizeAcademicYear(value: string) {

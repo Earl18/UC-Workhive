@@ -13,7 +13,7 @@ import {
   Lock, Eye, EyeOff, CheckCircle2, XCircle, Loader2, ShieldAlert,
   KeyRound, AlertTriangle,
 } from "lucide-react";
-import { PASSWORD_REQUIREMENTS_MESSAGE, validatePasswordRequirements } from "@/lib/role-default-passwords";
+import { PASSWORD_REQUIREMENTS_MESSAGE, validatePasswordRequirements } from "@/lib/password-policy";
 import type { SystemUser } from "@/lib/types";
 
 export function FirstLoginModal() {
@@ -94,7 +94,7 @@ export function FirstLoginModal() {
                 Welcome to WorkHive!
               </DialogTitle>
               <DialogDescription className="mt-1">
-                This account is using its role&apos;s default password. Please set a new password before continuing.
+                This account has a temporary password. Please set a new password before continuing.
               </DialogDescription>
             </div>
           </div>
@@ -195,7 +195,7 @@ export function FirstLoginModal() {
           </div>
 
           {/* Security note */}
-          <p className="text-xs text-muted-foreground">{PASSWORD_REQUIREMENTS_MESSAGE} Choose a password different from the role default.</p>
+          <p className="text-xs text-muted-foreground">{PASSWORD_REQUIREMENTS_MESSAGE} Choose a password different from your temporary password.</p>
           <div className="flex items-start gap-2 rounded-lg border border-gold/30 bg-gold/5 p-3">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
             <p className="text-[11px] text-muted-foreground">

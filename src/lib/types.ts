@@ -315,10 +315,6 @@ export type Applicant = {
   email: string;
   phone?: string;
   contact?: string;
-  sssNumber?: string;
-  tinNumber?: string;
-  pagIbigNumber?: string;
-  philHealthNumber?: string;
   positionApplied?: string;
   department?: string;
   jobId?: string;
@@ -364,6 +360,7 @@ export type CoreEmailTemplateType =
     | "Overtime Rejected"
     | "Upcoming Holiday Reminder"
     | "Welcome Email"
+    | "Temporary Password"
     | "Password Reset";
 
 export type EmailTemplateType = CoreEmailTemplateType | (string & {});
@@ -432,13 +429,8 @@ export type NotificationItem = {
 };
 
 export const APPLICANT_REQUIREMENT_KEYS = [
-  "Resume",
-  "TOR",
-  "Diploma",
-  "PRC License",
-  "COE",
-  "SSS/PhilHealth/PagIBIG",
-  "Marriage/Birth Certificate",
+  "Application Letter",
+  "Resume/CV",
 ] as const;
 
 export const INTERVIEW_CRITERIA = [

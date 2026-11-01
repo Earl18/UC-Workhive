@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { format } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Briefcase, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, CircleUserRound, Loader2, Mail, Phone, Plus, ShieldCheck } from "lucide-react";
@@ -19,13 +19,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
-type SystemSettingsResponse = {
-  settings: {
-    employeeDefaultPassword: string;
-    hrDefaultPassword: string;
-  };
-};
 
 type CreateEmployeePayload = Omit<Employee, "id"> & {
   birthDate?: string;
@@ -60,18 +53,13 @@ async function readJson<T>(response: Response): Promise<T> {
   return payload;
 }
 
-async function fetchSystemSettings() {
-  const response = await fetch("/api/system-settings", { cache: "no-store" });
-  return readJson<SystemSettingsResponse>(response);
-}
-
 async function createEmployee(payload: CreateEmployeePayload) {
   const response = await fetch("/api/hr/master-list", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  return readJson<{ employee: Employee & { birthDate?: string } }>(response);
+  return readJson<{ employee: Employee & { birthDate?: string }; emailSent: boolean; emailError?: string }>(response);
 }
 
 function buildInitialDraft(): AddEmployeeDraft {
@@ -142,38 +130,20 @@ export function AddEmployeePage() {
   const positions = data?.positions ?? [];
   const [step, setStep] = useState(1);
   const [draft, setDraft] = useState<AddEmployeeDraft>(buildInitialDraft);
-  const [defaultPasswords, setDefaultPasswords] = useState({ employee: "Employee@123", hr: "HR@123" });
-
-  useEffect(() => {
-    let active = true;
-    void fetchSystemSettings()
-      .then((payload) => {
-        if (!active) {
-          return;
-        }
-        setDefaultPasswords({
-          employee: payload.settings.employeeDefaultPassword || "Employee@123",
-          hr: payload.settings.hrDefaultPassword || "HR@123",
-        });
-      })
-      .catch(() => undefined);
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const derivedAge = calculateAgeFromBirthDate(draft.birthDate);
   const derivedService = draft.dateHired ? lengthOfService(draft.dateHired) : "-";
-  const selectedDefaultPassword = draft.accountRole === "hr" ? defaultPasswords.hr : defaultPasswords.employee;
 
   const createMutation = useMutation({
     mutationFn: createEmployee,
-    onSuccess: ({ employee }) => {
+    onSuccess: ({ employee, emailSent, emailError }) => {
       queryClient.setQueryData(["hr-master-list", employee.id], { employee });
       void queryClient.invalidateQueries({ queryKey: ["hr-master-list"] });
       toast({
         title: "Employee Added",
-        description: `${employee.lastName}, ${employee.firstName} was added to the employee master list and the website account was created.`,
+        description: emailSent
+          ? `${employee.lastName}, ${employee.firstName} was added and emailed a unique temporary password.`
+          : `${employee.lastName}, ${employee.firstName} was added, but the password email failed. ${emailError ?? "Please retry from the account page."}`,
+        variant: emailSent ? "default" : "destructive",
       });
       setSelectedEmployeeId(employee.id);
       setView("hr:employee-details");
@@ -317,7 +287,7 @@ export function AddEmployeePage() {
             <div className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 <Field label="Email Address" value={draft.email} onChange={() => undefined} icon={<Mail className="h-4 w-4" />} disabled />
-                <Field label="Default Password" value={selectedDefaultPassword} onChange={() => undefined} disabled />
+                <p className="text-sm text-muted-foreground">A unique temporary password will be emailed to this address. The employee must change it on first sign in.</p>
                 <SelectField label="Account Type" value={draft.accountRole} onValueChange={(value) => patchDraft({ accountRole: value as Extract<Role, "employee" | "hr"> })} options={[{ value: "employee", label: "Employee" }, { value: "hr", label: "HR" }]} required />
               </div>
 

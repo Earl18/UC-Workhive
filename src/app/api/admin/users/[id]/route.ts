@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin-auth";
-import { getSystemSettings, logAuditEvent, toSystemUser } from "@/lib/admin-data";
-import { ensureAuthUserWithPassword, syncAuthUserProfile } from "@/lib/auth-admin";
+import { logAuditEvent, toSystemUser } from "@/lib/admin-data";
+import { syncAuthUserProfile } from "@/lib/auth-admin";
 import { isAllowedEmail, normalizeEmail } from "@/lib/auth";
-import { getDefaultPasswordForRole } from "@/lib/role-default-passwords";
 import type { Role } from "@/lib/types";
 
 export async function PATCH(
@@ -56,68 +55,24 @@ export async function PATCH(
       return NextResponse.json({ error: "A user with that email already exists." }, { status: 409 });
     }
 
-    const settings = await getSystemSettings();
-    const defaultPassword = getDefaultPasswordForRole(settings, nextRole);
-
     const updated = await db.$transaction(async (tx) => {
-      let nextAuthUserId = existing.authUserId;
-      let nextPasswordSource = existing.passwordSource;
-      let nextPasswordRole = existing.passwordRole;
-      let nextPasswordVersion = existing.passwordVersion;
-
-      if (existing.passwordSource === "role_default") {
-        const authUser = await ensureAuthUserWithPassword(tx, {
-          authUserId: existing.authUserId,
-          email: nextEmail,
-          password: defaultPassword,
-          name: nextName,
-          role: nextRole,
-        });
-
-        const passwordVersionRow = await tx.systemSettings.findUnique({
-          where: { id: "default" },
-          select: {
-            employeePasswordVersion: true,
-            hrPasswordVersion: true,
-            adminPasswordVersion: true,
-          },
-        });
-
-        nextAuthUserId = authUser.id;
-        nextPasswordSource = "role_default";
-        nextPasswordRole = nextRole;
-        nextPasswordVersion =
-          nextRole === "admin"
-            ? passwordVersionRow?.adminPasswordVersion ?? existing.passwordVersion ?? 1
-            : nextRole === "hr"
-              ? passwordVersionRow?.hrPasswordVersion ?? existing.passwordVersion ?? 1
-              : passwordVersionRow?.employeePasswordVersion ?? existing.passwordVersion ?? 1;
-      } else {
-        const authUser = await syncAuthUserProfile(tx, {
-          authUserId: existing.authUserId,
-          email: nextEmail,
-          name: nextName,
-          role: nextRole,
-        });
-
-        if (authUser) {
-          nextAuthUserId = authUser.id;
-        }
-      }
+      const authUser = await syncAuthUserProfile(tx, {
+        authUserId: existing.authUserId,
+        email: nextEmail,
+        name: nextName,
+        role: nextRole,
+      });
 
       return tx.user.update({
         where: { id },
         data: {
-          authUserId: nextAuthUserId,
+          authUserId: authUser?.id ?? existing.authUserId,
           name: nextName,
           email: nextEmail,
           role: nextRole,
           active: body.active ?? existing.active,
           employeeId: body.employeeId === undefined ? existing.employeeId : body.employeeId,
           department: body.department === undefined ? existing.department : body.department,
-          passwordSource: nextPasswordSource,
-          passwordRole: nextPasswordRole,
-          passwordVersion: nextPasswordVersion,
         },
         select: {
           id: true,

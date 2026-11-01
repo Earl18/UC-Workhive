@@ -189,7 +189,7 @@ async function createAdminUser(payload: InvitePayload) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  return readJson<{ user: SystemUser }>(response);
+  return readJson<{ user: SystemUser; emailSent: boolean; emailError?: string }>(response);
 }
 
 async function patchAdminUser(payload: UpdatePayload) {
@@ -337,12 +337,16 @@ export function UsersPage() {
 
   const inviteMutation = useMutation({
     mutationFn: createAdminUser,
-    onSuccess: ({ user }) => {
+    onSuccess: ({ user, emailSent, emailError }) => {
       queryClient.setQueryData<{ users: SystemUser[] } | undefined>(["admin-users"], (current) => ({
         users: current ? [user, ...current.users.filter((entry) => entry.id !== user.id)] : [user],
       }));
       void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
-      toast({ title: "Invitation sent", description: `${user.email} was added as ${ROLE_LABELS[user.role]}.` });
+      toast({
+        title: emailSent ? "Account email sent" : "Account created; email failed",
+        description: emailSent ? `${user.email} received a unique temporary password.` : `${user.email} was created, but the password email failed. ${emailError ?? "Please retry from Users."}`,
+        variant: emailSent ? "default" : "destructive",
+      });
       setInviteOpen(false);
       setInviteName("");
       setInviteEmail("");
@@ -421,8 +425,8 @@ export function UsersPage() {
       setResetTarget(null);
       void queryClient.invalidateQueries({ queryKey: ["admin-users"] });
       toast({
-        title: "Password reset",
-        description: `${user.name} can now sign in with the ${ROLE_LABELS[user.role]} default password.`,
+        title: "Password email sent",
+        description: `A unique temporary password was sent to ${user.email}.`,
       });
       if (currentUser?.id === user.id) void logout();
     },
@@ -605,9 +609,9 @@ export function UsersPage() {
       <Dialog open={!!resetTarget} onOpenChange={(open) => { if (!open && !resetPasswordMutation.isPending) setResetTarget(null); }}>
         <DialogContent className="sm:max-w-md" showCloseButton={!resetPasswordMutation.isPending}>
           <DialogHeader>
-            <DialogTitle>Reset password to role default?</DialogTitle>
+            <DialogTitle>Send a new temporary password?</DialogTitle>
             <DialogDescription>
-              {resetTarget?.name} ({resetTarget?.email}) will need the current {resetTarget ? ROLE_LABELS[resetTarget.role] : "role"} default password from System Settings to sign in. Their current password will stop working.
+              A unique temporary password will be generated and emailed to {resetTarget?.name} ({resetTarget?.email}). Their current password will stop working, and they will change the temporary password at sign in.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

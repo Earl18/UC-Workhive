@@ -27,9 +27,6 @@ export type SystemSettingsRecord = {
   paternityLeaveDays: number;
   maternityLeaveDays: number;
   leaveWithoutPayDays: number;
-  employeeDefaultPassword: string;
-  hrDefaultPassword: string;
-  adminDefaultPassword: string;
   updatedAt?: string;
 };
 

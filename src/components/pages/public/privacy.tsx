@@ -62,8 +62,7 @@ const SECTIONS: Section[] = [
         items: [
           "Applicant full name, email, contact number, and message submitted on the Careers page",
           "Position applied for and department linked to the selected job posting",
-          "SSS, TIN, Pag-IBIG, and PhilHealth numbers entered during application submission",
-          "Required applicant uploads collected as a requirements archive for HR review",
+          "Application letter and résumé collected as a requirements archive for HR review",
           "Leave attachment files uploaded by employees when supporting documents are required",
         ],
       },

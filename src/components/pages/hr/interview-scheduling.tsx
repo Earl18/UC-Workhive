@@ -229,7 +229,7 @@ function jobDepartmentById(jobPostings: Array<Pick<JobPosting, "id" | "departmen
 export function InterviewSchedulingPage() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { currentUser } = useWorkHive();
+  const { currentUser, selectedInterviewApplicantId, setSelectedInterviewApplicantId } = useWorkHive();
   const applicationsQuery = useHrApplications();
   const jobPostingsQuery = useStaffJobPostings();
   const currentUserName = currentUser?.name ?? "HR";
@@ -254,7 +254,10 @@ export function InterviewSchedulingPage() {
   const [positionFilter, setPositionFilter] = useState<string>("All");
   const [modeFilter, setModeFilter] = useState<string>("All");
   const [interviewerFilter, setInterviewerFilter] = useState<string>("All");
-  const [selectedApplicantId, setSelectedApplicantId] = useState<string | null>(null);
+  const [selectedApplicantId, setSelectedApplicantId] = useState<string | null>(selectedInterviewApplicantId);
+  useEffect(() => {
+    if (selectedInterviewApplicantId) setSelectedInterviewApplicantId(null);
+  }, [selectedInterviewApplicantId, setSelectedInterviewApplicantId]);
   const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
   const [calendarMonth, setCalendarMonth] = useState(() => new Date().getMonth());
   const [modal, setModal] = useState<ScheduleModalState>(null);

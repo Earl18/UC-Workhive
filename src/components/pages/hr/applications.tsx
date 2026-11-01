@@ -92,7 +92,7 @@ const STAGE_PAGE_SIZE_OPTIONS = [5, 10, 25, 50] as const;
 
 export function ApplicationsPage() {
   const { toast } = useToast();
-  const { selectedApplicantId, setSelectedApplicantId } = useWorkHive();
+  const { selectedApplicantId, setSelectedApplicantId, setSelectedInterviewApplicantId, setView } = useWorkHive();
   const queryClient = useQueryClient();
   const jobPostingsQuery = useStaffJobPostings();
   const applicationsQuery = useHrApplications();
@@ -132,6 +132,9 @@ export function ApplicationsPage() {
       return payload.applicant;
     },
     onSuccess: (updatedApplicant) => {
+      queryClient.setQueryData<Applicant[]>(["hr-applications"], (current) =>
+        current?.map((applicant) => applicant.id === updatedApplicant.id ? updatedApplicant : applicant),
+      );
       void queryClient.invalidateQueries({ queryKey: ["hr-applications"] });
       setDetailApplicant((current) => current && current.id === updatedApplicant.id ? updatedApplicant : current);
     },
@@ -217,6 +220,10 @@ export function ApplicationsPage() {
             title: "Stage Updated",
             description: `${applicantDisplayName(applicant)} -> ${stage}`,
           });
+          if (stage === "Interview") {
+            setSelectedInterviewApplicantId(updatedApplicant.id);
+            setView("hr:interview-scheduling");
+          }
         },
         onError: (error) => {
           toast({

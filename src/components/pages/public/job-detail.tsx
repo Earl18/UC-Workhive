@@ -89,12 +89,12 @@ export function JobDetailPage() {
   const [uploadedRequirements, setUploadedRequirements] = useState<RequirementUploadState>(() => createEmptyUploadState());
   const [turnstileReady, setTurnstileReady] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
-  const turnstileContainerRef = useRef<HTMLDivElement>(null);
+  const [turnstileContainer, setTurnstileContainer] = useState<HTMLDivElement | null>(null);
   const turnstileWidgetRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!dialogOpen || !turnstileSiteKey || !turnstileReady || !turnstileContainerRef.current || !window.turnstile) return;
-    const widgetId = window.turnstile.render(turnstileContainerRef.current, {
+    if (!dialogOpen || !turnstileSiteKey || !turnstileReady || !turnstileContainer || !window.turnstile) return;
+    const widgetId = window.turnstile.render(turnstileContainer, {
       sitekey: turnstileSiteKey,
       action: "job_application",
       callback: setTurnstileToken,
@@ -106,7 +106,7 @@ export function JobDetailPage() {
       window.turnstile?.remove(widgetId);
       turnstileWidgetRef.current = null;
     };
-  }, [dialogOpen, turnstileReady]);
+  }, [dialogOpen, turnstileReady, turnstileContainer]);
 
   const job = jobQuery.data
     ? {
@@ -358,7 +358,7 @@ export function JobDetailPage() {
                       </div>
                       {turnstileSiteKey ? (
                         <div className="space-y-1">
-                          <div ref={turnstileContainerRef} className="min-h-[65px]" aria-label="Security verification" />
+                          <div ref={setTurnstileContainer} className="min-h-[65px]" aria-label="Security verification" />
                           <p className="text-xs text-muted-foreground">Complete the security check to submit your application.</p>
                         </div>
                       ) : null}

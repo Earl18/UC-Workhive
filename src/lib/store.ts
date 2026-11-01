@@ -82,6 +82,35 @@ const DASHBOARD_VIEWS: Record<Role, View> = {
   admin: "admin:dashboard",
 };
 
+const KNOWN_VIEWS = new Set<View>([
+  "public:landing", "public:about", "public:careers", "public:privacy", "public:job-detail", "public:login", "public:forgot-password",
+  "employee:dashboard", "employee:profile", "employee:attendance", "employee:time-clock", "employee:leave", "employee:holidays", "employee:documents", "employee:notifications",
+  "hr:dashboard", "hr:employee-details", "hr:master-list", "hr:add-employee", "hr:attendance", "hr:attendance-validation", "hr:attendance-summary", "hr:tardiness", "hr:leave-management", "hr:leave-summary", "hr:job-postings", "hr:applications", "hr:interview-scheduling", "hr:interviews", "hr:video-conferencing", "hr:holidays", "hr:reports",
+  "admin:dashboard", "admin:settings", "admin:feature-toggles", "admin:gps-zones", "admin:users", "admin:email-templates", "admin:audit-log",
+]);
+
+function viewFromLocation(user: SystemUser | null): View {
+  if (typeof window === "undefined") return user ? DASHBOARD_VIEWS[user.role] : "public:landing";
+  const requested = new URL(window.location.href).searchParams.get("view") as View | null;
+  if (requested && KNOWN_VIEWS.has(requested) && requested.startsWith(user ? `${user.role}:` : "public:")) return requested;
+  return user ? DASHBOARD_VIEWS[user.role] : "public:landing";
+}
+
+function writeViewToHistory(view: View, selectedJobId: string | null, selectedEmployeeId: string | null, replace = false) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (view === "public:landing") url.searchParams.delete("view");
+  else url.searchParams.set("view", view);
+  if (view === "public:job-detail" && selectedJobId) url.searchParams.set("job", selectedJobId);
+  else url.searchParams.delete("job");
+  if (view === "hr:employee-details" && selectedEmployeeId) url.searchParams.set("employee", selectedEmployeeId);
+  else url.searchParams.delete("employee");
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  if (nextUrl === `${window.location.pathname}${window.location.search}${window.location.hash}`) return;
+  if (replace) window.history.replaceState(null, "", nextUrl);
+  else window.history.pushState(null, "", nextUrl);
+}
+
 interface WorkHiveState {
   currentUser: SystemUser | null;
   view: View;
@@ -109,6 +138,8 @@ interface WorkHiveState {
   hydrateSession: (user: SystemUser | null) => void;
   logout: () => Promise<void>;
   setView: (v: View) => void;
+  replaceView: (v: View) => void;
+  restoreViewFromLocation: () => void;
   setSelectedJobId: (id: string | null) => void;
   setSelectedEmployeeId: (id: string | null) => void;
   setSelectedApplicantId: (id: string | null) => void;
@@ -170,20 +201,17 @@ export const useWorkHive = create<WorkHiveState>((set, get) => ({
 
   setAuthenticatedUser: (user) => {
     set({ currentUser: user, view: DASHBOARD_VIEWS[user.role], selectedVideoApplicantId: null });
+    writeViewToHistory(DASHBOARD_VIEWS[user.role], null, null);
   },
 
   hydrateSession: (user) => {
-    if (!user) {
-      set((state) => ({
-        currentUser: null,
-        view: state.currentUser ? "public:landing" : state.view,
-      }));
-      return;
-    }
-
-    set((state) => ({
+    const requestedView = viewFromLocation(user);
+    const url = typeof window !== "undefined" ? new URL(window.location.href) : null;
+    set(() => ({
       currentUser: user,
-      view: state.view.startsWith("public:") ? DASHBOARD_VIEWS[user.role] : state.view,
+      view: requestedView,
+      selectedJobId: requestedView === "public:job-detail" ? url?.searchParams.get("job") ?? null : null,
+      selectedEmployeeId: requestedView === "hr:employee-details" ? url?.searchParams.get("employee") ?? null : null,
     }));
   },
 
@@ -196,10 +224,30 @@ export const useWorkHive = create<WorkHiveState>((set, get) => ({
       });
     } finally {
       set({ currentUser: null, view: "public:landing", selectedVideoApplicantId: null });
+      writeViewToHistory("public:landing", null, null);
     }
   },
 
-  setView: (v) => set({ view: v }),
+  setView: (v) => {
+    const state = get();
+    writeViewToHistory(v, state.selectedJobId, state.selectedEmployeeId);
+    set({ view: v });
+  },
+  replaceView: (v) => {
+    const state = get();
+    writeViewToHistory(v, state.selectedJobId, state.selectedEmployeeId, true);
+    set({ view: v });
+  },
+  restoreViewFromLocation: () => {
+    const state = get();
+    const requestedView = viewFromLocation(state.currentUser);
+    const url = new URL(window.location.href);
+    set({
+      view: requestedView,
+      selectedJobId: requestedView === "public:job-detail" ? url.searchParams.get("job") : null,
+      selectedEmployeeId: requestedView === "hr:employee-details" ? url.searchParams.get("employee") : null,
+    });
+  },
   setSelectedJobId: (id) => set({ selectedJobId: id }),
   setSelectedEmployeeId: (id) => set({ selectedEmployeeId: id }),
   setSelectedApplicantId: (id) => set({ selectedApplicantId: id }),

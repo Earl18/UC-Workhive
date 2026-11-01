@@ -225,7 +225,7 @@ function PersistentHrAttendancePages({ activeView }: { activeView: (typeof PERSI
 export function WorkHiveApp() {
   const showBackToTop = useBackToTopVisible();
   useTableSwipeProtection();
-  const { currentUser, view, selectedVideoApplicantId, hydrateSession, setFeatureToggles, setHolidays, featureToggles, setView } = useWorkHive();
+  const { currentUser, view, selectedVideoApplicantId, hydrateSession, setFeatureToggles, setHolidays, featureToggles, replaceView, restoreViewFromLocation } = useWorkHive();
   const [authReady, setAuthReady] = useState(false);
   const { data: featureToggleData } = useFeatureToggles();
   const { data: holidayData } = useHolidayRecords();
@@ -235,11 +235,16 @@ export function WorkHiveApp() {
     const openForgotPassword = url.searchParams.get("forgot-password") === "1";
     const openSignIn = url.searchParams.get("sign-in") === "1";
     if (!openForgotPassword && !openSignIn) return;
-    setView(openForgotPassword ? "public:forgot-password" : "public:login");
     url.searchParams.delete("forgot-password");
     url.searchParams.delete("sign-in");
     window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
-  }, [setView]);
+    replaceView(openForgotPassword ? "public:forgot-password" : "public:login");
+  }, [replaceView]);
+
+  useEffect(() => {
+    window.addEventListener("popstate", restoreViewFromLocation);
+    return () => window.removeEventListener("popstate", restoreViewFromLocation);
+  }, [restoreViewFromLocation]);
 
   useLayoutEffect(() => {
     window.scrollTo(0, 0);
@@ -263,9 +268,9 @@ export function WorkHiveApp() {
     }
 
     if (!isViewEnabled(view, featureToggles)) {
-      setView(getFallbackViewForRole(currentUser.role, featureToggles));
+      replaceView(getFallbackViewForRole(currentUser.role, featureToggles));
     }
-  }, [currentUser, featureToggles, setView, view]);
+  }, [currentUser, featureToggles, replaceView, view]);
 
   const syncSession = useCallback(async (allowLogoutOnFailure: boolean) => {
     try {

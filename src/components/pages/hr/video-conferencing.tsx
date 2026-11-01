@@ -166,7 +166,7 @@ export function VideoConferencingPage({ active = true }: { active?: boolean }) {
       && (applicant.schedule.moderatorUserId
         ? applicant.schedule.moderatorUserId === currentUser?.id
         : applicant.schedule.createdBy === currentUser?.name || applicant.schedule.panel?.[0] === currentUser?.name))
-    .sort((left, right) => `${left.schedule?.date} ${left.schedule?.startTime}`.localeCompare(`${right.schedule?.date} ${right.schedule?.startTime}`)),
+    .sort((left, right) => `${right.schedule?.date} ${right.schedule?.startTime}`.localeCompare(`${left.schedule?.date} ${left.schedule?.startTime}`)),
   [applicationsQuery.data, currentUser?.id, currentUser?.name]);
   const positionFor = (applicant: Applicant) => jobPostings.find((posting) => posting.id === applicant.jobId)?.title ?? applicant.positionApplied ?? "Unknown position";
   const departmentFor = (applicant: Applicant) => jobPostings.find((posting) => posting.id === applicant.jobId)?.department ?? applicant.department ?? "-";

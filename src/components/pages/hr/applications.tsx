@@ -32,6 +32,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { useToast } from "@/hooks/use-toast";
 import { useStaffJobPostings } from "@/hooks/use-job-postings";
 import { useHrApplications } from "@/hooks/use-applications";
+import { APPLICANT_UPLOAD_REQUIREMENTS } from "@/lib/application-requirements";
 import { useWorkHive } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import {
@@ -43,6 +44,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Download,
+  Eye,
   FileArchive,
   Mail,
   MapPin,
@@ -586,15 +588,30 @@ export function ApplicationsPage() {
                       className="mb-3 h-2"
                     />
                     <div className="grid max-h-[260px] gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
-                      {(activeDetailApplicant.requirements ?? []).map((requirement) => (
-                        <div
-                          key={requirement.key}
-                          className={`flex min-h-[52px] items-start gap-3 rounded-lg border p-2.5 text-sm leading-5 ${requirement.submitted ? "border-emerald-300 bg-emerald-50" : "border-border bg-background"}`}
-                        >
-                          <CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${requirement.submitted ? "text-emerald-600" : "text-muted-foreground"}`} />
-                          <span className={requirement.submitted ? "text-foreground" : "text-muted-foreground"}>{requirement.label}</span>
-                        </div>
-                      ))}
+                      {(activeDetailApplicant.requirements ?? []).map((requirement) => {
+                        const canView = requirement.submitted && Boolean(activeDetailApplicant.requirementsArchivePath)
+                          && APPLICANT_UPLOAD_REQUIREMENTS.some((uploadRequirement) => uploadRequirement.key === requirement.key);
+                        const content = (
+                          <>
+                            <CheckCircle2 className={`h-4 w-4 shrink-0 ${requirement.submitted ? "text-emerald-600" : "text-muted-foreground"}`} />
+                            <span className={`flex-1 ${requirement.submitted ? "text-foreground" : "text-muted-foreground"}`}>{requirement.label}</span>
+                            {canView ? <span className="flex items-center gap-1 text-xs font-medium text-primary"><Eye className="h-4 w-4" /> View</span> : null}
+                          </>
+                        );
+                        const className = `flex min-h-[52px] items-center gap-3 rounded-lg border p-2.5 text-sm leading-5 ${requirement.submitted ? "border-emerald-300 bg-emerald-50" : "border-border bg-background"}`;
+                        return canView ? (
+                          <a
+                            key={requirement.key}
+                            href={`/api/hr/applications/${encodeURIComponent(activeDetailApplicant.id)}/requirements/${encodeURIComponent(requirement.key)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`${className} hover:border-emerald-500 hover:bg-emerald-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
+                            aria-label={`View ${requirement.label} submitted by ${applicantDisplayName(activeDetailApplicant)}`}
+                          >
+                            {content}
+                          </a>
+                        ) : <div key={requirement.key} className={className}>{content}</div>;
+                      })}
                     </div>
                   </div>
 

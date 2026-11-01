@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { NextRequest, NextResponse } from "next/server";
-import { APPLICANT_UPLOAD_REQUIREMENTS } from "@/lib/application-requirements";
+import { APPLICANT_UPLOAD_REQUIREMENTS, requirementArchiveEntryBaseName } from "@/lib/application-requirements";
 import { DuplicateJobApplicationError, hasSubmittedJobApplication, submitApplicantApplication } from "@/lib/application-data";
 import { ApplicationChallengeError, verifyJobApplicationChallenge } from "@/lib/application-abuse";
 import { sendTemplatedEmailSafely } from "@/lib/brevo-email";
@@ -19,14 +19,6 @@ function sanitizeArchiveName(value: string) {
     .trim()
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-") || "applicant";
-}
-
-function sanitizeZipEntryName(value: string) {
-  return value
-    .normalize("NFKD")
-    .replace(/[\\/:*?"<>|]+/g, "")
-    .trim()
-    .replace(/\s+/g, " ") || "requirement";
 }
 
 function getFileExtension(fileName: string) {
@@ -94,7 +86,7 @@ export async function POST(request: NextRequest) {
         }
 
         const extension = getFileExtension(file.name);
-        const entryName = `${String(index + 1).padStart(2, "0")} - ${sanitizeZipEntryName(requirement.label)}${files.length > 1 ? ` (${fileIndex + 1})` : ""}${extension}`;
+        const entryName = `${requirementArchiveEntryBaseName(requirement, index)}${files.length > 1 ? ` (${fileIndex + 1})` : ""}${extension}`;
         zip.file(entryName, Buffer.from(await file.arrayBuffer()));
       }
 

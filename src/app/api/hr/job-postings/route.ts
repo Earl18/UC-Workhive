@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStaff } from "@/lib/admin-auth";
-import { createJobPosting, getJobPostingFormOptions, getStaffJobPostings } from "@/lib/job-posting-data";
+import { createJobPosting, DuplicateActiveJobPostingError, getJobPostingFormOptions, getStaffJobPostings } from "@/lib/job-posting-data";
 
 export async function GET(request: NextRequest) {
   const auth = requireStaff(request);
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to create job posting." },
-      { status: 400 },
+      { status: error instanceof DuplicateActiveJobPostingError ? 409 : 400 },
     );
   }
 }

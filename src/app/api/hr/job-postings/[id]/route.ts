@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStaff } from "@/lib/admin-auth";
-import { deleteJobPosting, getJobPostingById, setJobPostingActiveState, updateJobPosting } from "@/lib/job-posting-data";
+import { deleteJobPosting, DuplicateActiveJobPostingError, getJobPostingById, setJobPostingActiveState, updateJobPosting } from "@/lib/job-posting-data";
 
 export async function GET(
   request: NextRequest,
@@ -44,7 +44,7 @@ export async function PATCH(
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to update job posting." },
-      { status: 400 },
+      { status: error instanceof DuplicateActiveJobPostingError ? 409 : 400 },
     );
   }
 }

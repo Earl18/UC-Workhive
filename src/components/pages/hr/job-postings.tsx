@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStaffJobPostings } from "@/hooks/use-job-postings";
+import { normalizeJobTitle } from "@/lib/job-title";
 import type { JobPosting, JobQualification } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,13 @@ export function JobPostingsPage() {
   const activeCount = jobs.filter((job) => job.active).length;
   const closedCount = jobs.length - activeCount;
   const totalApplicants = jobs.reduce((sum, job) => sum + job.applicantCount, 0);
+  const normalizedFormTitle = normalizeJobTitle(form.title);
+  const createTitleConflict = normalizedFormTitle
+    ? jobs.find((job) => job.active && normalizeJobTitle(job.title) === normalizedFormTitle)
+    : undefined;
+  const editTitleConflict = normalizedFormTitle && selectedJob?.active
+    ? jobs.find((job) => job.active && job.id !== selectedJob?.id && normalizeJobTitle(job.title) === normalizedFormTitle)
+    : undefined;
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -439,6 +447,7 @@ export function JobPostingsPage() {
           <JobPostingForm
             form={form}
             setForm={setForm}
+            titleConflict={createTitleConflict?.title}
             departmentSuggestions={departmentSuggestions}
             positionTypeSuggestions={positionTypeSuggestions}
             updateQualificationRow={updateQualificationRow}
@@ -447,7 +456,7 @@ export function JobPostingsPage() {
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)} disabled={saving}>Cancel</Button>
-            <Button className="bg-primary" onClick={() => createMutation.mutate()} disabled={saving}>
+            <Button className="bg-primary" onClick={() => createMutation.mutate()} disabled={saving || Boolean(createTitleConflict)}>
               {createMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
               Publish Posting
             </Button>
@@ -476,6 +485,7 @@ export function JobPostingsPage() {
               <JobPostingForm
                 form={form}
                 setForm={setForm}
+                titleConflict={editTitleConflict?.title}
                 departmentSuggestions={departmentSuggestions}
                 positionTypeSuggestions={positionTypeSuggestions}
                 updateQualificationRow={updateQualificationRow}
@@ -484,7 +494,7 @@ export function JobPostingsPage() {
               />
               <DialogFooter>
                 <Button variant="outline" onClick={() => setEditing(false)} disabled={saving}>Cancel</Button>
-                <Button className="bg-primary" onClick={submitEdit} disabled={saving}>
+                <Button className="bg-primary" onClick={submitEdit} disabled={saving || Boolean(editTitleConflict)}>
                   {updateMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Pencil className="mr-2 h-4 w-4" />}
                   Save Changes
                 </Button>
@@ -549,6 +559,7 @@ export function JobPostingsPage() {
 function JobPostingForm({
   form,
   setForm,
+  titleConflict,
   departmentSuggestions,
   positionTypeSuggestions,
   updateQualificationRow,
@@ -557,6 +568,7 @@ function JobPostingForm({
 }: {
   form: JobFormState;
   setForm: React.Dispatch<React.SetStateAction<JobFormState>>;
+  titleConflict?: string;
   departmentSuggestions: string[];
   positionTypeSuggestions: string[];
   updateQualificationRow: (index: number, patch: Partial<JobQualification>) => void;
@@ -580,7 +592,9 @@ function JobPostingForm({
           value={form.title}
           onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
           placeholder="e.g., College Instructor - Computer Studies"
+          aria-invalid={Boolean(titleConflict)}
         />
+        {titleConflict ? <p className="text-sm text-destructive" role="alert">An active posting titled &quot;{titleConflict}&quot; already exists.</p> : null}
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <SuggestionField

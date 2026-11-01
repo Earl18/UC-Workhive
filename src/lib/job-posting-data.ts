@@ -1,10 +1,30 @@
 import { randomUUID } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { normalizeJobTitle } from "@/lib/job-title";
 import type { JobPosting, JobPostingStatus, JobQualification, JobType } from "@/lib/types";
 
 const DEFAULT_POSITION_TYPES = ["Full-Time", "Part-Time", "Contractual"] as const;
 const JOB_TYPES = new Set<JobType>(DEFAULT_POSITION_TYPES);
 const JOB_POSTING_AUTHOR_ID = "workhive-job-postings";
+
+export class DuplicateActiveJobPostingError extends Error {
+  constructor(title: string) {
+    super(`An active job posting titled "${title}" already exists. Close it before publishing another posting with this title.`);
+    this.name = "DuplicateActiveJobPostingError";
+  }
+}
+
+async function assertNoActiveTitleConflict(transaction: Prisma.TransactionClient, title: string, excludedId?: string) {
+  const rows = await transaction.post.findMany({
+    where: { authorId: JOB_POSTING_AUTHOR_ID, published: true },
+    select: { id: true, title: true, content: true },
+  });
+  const normalizedTitle = normalizeJobTitle(title);
+  const duplicate = rows.find((row) => row.id !== excludedId && parseStoredJobPosting(row.content)
+    && normalizeJobTitle(row.title) === normalizedTitle);
+  if (duplicate) throw new DuplicateActiveJobPostingError(duplicate.title);
+}
 
 type StoredJobPosting = {
   kind: "job-posting";
@@ -251,15 +271,21 @@ export async function getJobPostingFormOptions(): Promise<JobPostingFormOptions>
 
 export async function createJobPosting(input: Partial<JobPosting>) {
   const payload = validateJobPostingInput(input);
-  const created = await db.post.create({
-    data: {
-      id: randomUUID(),
-      title: payload.title,
-      content: payload.stored,
-      published: payload.active,
-      authorId: JOB_POSTING_AUTHOR_ID,
-    },
-    select: { id: true, title: true, published: true, content: true },
+  const created = await db.$transaction(async (transaction) => {
+    if (payload.active) {
+      await transaction.$queryRaw`SELECT pg_advisory_xact_lock(71310021)::text`;
+      await assertNoActiveTitleConflict(transaction, payload.title);
+    }
+    return transaction.post.create({
+      data: {
+        id: randomUUID(),
+        title: payload.title,
+        content: payload.stored,
+        published: payload.active,
+        authorId: JOB_POSTING_AUTHOR_ID,
+      },
+      select: { id: true, title: true, published: true, content: true },
+    });
   });
 
   const job = toJobPosting(created);
@@ -281,14 +307,20 @@ export async function updateJobPosting(id: string, input: Partial<JobPosting>) {
     creatorName: input.creatorName ?? existing.creatorName,
   });
 
-  const updated = await db.post.update({
-    where: { id },
-    data: {
-      title: payload.title,
-      content: payload.stored,
-      published: payload.active,
-    },
-    select: { id: true, title: true, published: true, content: true },
+  const updated = await db.$transaction(async (transaction) => {
+    if (payload.active) {
+      await transaction.$queryRaw`SELECT pg_advisory_xact_lock(71310021)::text`;
+      await assertNoActiveTitleConflict(transaction, payload.title, id);
+    }
+    return transaction.post.update({
+      where: { id },
+      data: {
+        title: payload.title,
+        content: payload.stored,
+        published: payload.active,
+      },
+      select: { id: true, title: true, published: true, content: true },
+    });
   });
 
   const job = toJobPosting(updated);
@@ -314,10 +346,21 @@ export async function deleteJobPosting(id: string) {
 }
 
 export async function setJobPostingActiveState(id: string, active: boolean) {
-  const updated = await db.post.update({
-    where: { id },
-    data: { published: active },
-    select: { id: true, title: true, published: true, content: true },
+  const updated = await db.$transaction(async (transaction) => {
+    if (active) {
+      await transaction.$queryRaw`SELECT pg_advisory_xact_lock(71310021)::text`;
+      const existing = await transaction.post.findFirst({
+        where: { id, authorId: JOB_POSTING_AUTHOR_ID },
+        select: { title: true, content: true },
+      });
+      if (!existing || !parseStoredJobPosting(existing.content)) throw new Error("Job posting not found.");
+      await assertNoActiveTitleConflict(transaction, existing.title, id);
+    }
+    return transaction.post.update({
+      where: { id },
+      data: { published: active },
+      select: { id: true, title: true, published: true, content: true },
+    });
   });
 
   const job = toJobPosting(updated);

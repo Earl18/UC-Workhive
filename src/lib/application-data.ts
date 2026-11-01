@@ -470,8 +470,14 @@ export async function saveSubmittedApplicantInterviewEvaluation(input: {
   const parsed = parseStoredApplicantSubmission(row.content);
   if (!parsed) throw new Error("Applicant record is invalid.");
 
+  const moveToOffer = input.evaluation.status === "submitted" && parsed.stage === "Interview";
   const updated = {
     ...parsed,
+    stage: moveToOffer ? "Offer" : parsed.stage,
+    stageHistory: moveToOffer ? [
+      ...(parsed.stageHistory ?? []).filter((entry) => entry.stage !== "Offer"),
+      { stage: "Offer" as const, movedBy: input.evaluation.interviewerName, movedAt: input.evaluation.updatedAt },
+    ] : parsed.stageHistory,
     interviewEvaluation: input.evaluation,
     schedule: parsed.schedule ? {
       ...parsed.schedule,

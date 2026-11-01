@@ -85,7 +85,7 @@ export const InterviewScoringPanel = forwardRef<InterviewScoringPanelHandle, {
       onDirtyChange(false);
       toast({
         title: cleared ? "Empty draft cleared" : status === "draft" ? "Evaluation draft saved" : context === "result" ? "Interview report updated" : "Evaluation submitted",
-        description: cleared ? "No ratings or remarks remain in this report." : status === "draft" ? "You can continue rating during the interview." : context === "result" ? "The updated result is saved for review." : "The interview is marked done and the applicant's report is saved.",
+        description: cleared ? "No ratings or remarks remain in this report." : status === "draft" ? "You can continue rating during the interview." : context === "result" ? "The updated result is saved for review." : "The interview is marked done and the applicant has moved to Offer.",
       });
       return true;
     } catch (error) {

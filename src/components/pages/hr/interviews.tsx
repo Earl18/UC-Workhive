@@ -86,7 +86,7 @@ export function InterviewsPage() {
   return <div className="space-y-5">
     <div>
       <h1 className="text-2xl font-bold text-primary">Interview Result</h1>
-      <p className="text-sm text-muted-foreground">Review saved interview reports before deciding an applicant&apos;s next stage.</p>
+      <p className="text-sm text-muted-foreground">Review saved interview reports and completed evaluations.</p>
     </div>
     <Card className="border-border">
       <CardHeader className="pb-3">
